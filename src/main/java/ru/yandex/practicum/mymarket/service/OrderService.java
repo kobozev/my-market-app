@@ -19,7 +19,7 @@ public class OrderService {
     private final CartService cartService;
 
     public Order createOrder(Long cartId) {
-        List<CartItem> cartItems = cartService.getItems(cartId);
+        List<CartItem> cartItems = cartService.getOrCreate(cartId).getItems();
 
         Order order = new Order();
 
