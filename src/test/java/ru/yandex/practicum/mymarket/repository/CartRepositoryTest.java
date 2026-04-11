@@ -4,6 +4,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
+import ru.yandex.practicum.mymarket.config.TestcontainersConfig;
 import ru.yandex.practicum.mymarket.model.Cart;
 import ru.yandex.practicum.mymarket.model.CartItem;
 import ru.yandex.practicum.mymarket.model.Item;
@@ -14,7 +17,9 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
-class CartRepositoryTest extends AbstractRepositoryTest {
+@Import(TestcontainersConfig.class)
+@ActiveProfiles("test")
+class CartRepositoryTest {
 
     @Autowired
     private CartRepository cartRepository;
