@@ -1,9 +1,23 @@
 package ru.yandex.practicum.mymarket.dto;
 
+import ru.yandex.practicum.mymarket.model.Order;
+
+import java.math.BigDecimal;
 import java.util.List;
 
 public record OrderDto(
-        Long id,
+        long id,
         List<ItemDto> items,
-        Long totalSum
-) {}
+        BigDecimal totalSum
+) {
+    public static OrderDto from(Order order) {
+        var orderItems = order.getOrderItems();
+        var totalSum = orderItems.stream()
+                .map(x -> x.getPrice().multiply(new BigDecimal(x.getQuantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        var items = orderItems.stream()
+                .map(orderItem-> ItemDto.from(orderItem, orderItem.getQuantity())).toList();
+        return new OrderDto(order.getId(), items, totalSum);
+    }
+}
