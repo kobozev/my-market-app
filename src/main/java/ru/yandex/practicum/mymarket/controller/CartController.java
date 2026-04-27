@@ -1,44 +1,77 @@
 package ru.yandex.practicum.mymarket.controller;
 
-import lombok.RequiredArgsConstructor;
+import jakarta.validation.Valid;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+
 import ru.yandex.practicum.mymarket.constants.CartAction;
-import ru.yandex.practicum.mymarket.dto.CartDto;
+import ru.yandex.practicum.mymarket.dto.ItemDto;
+import ru.yandex.practicum.mymarket.dto.Request.CartActionRequestDto;
 import ru.yandex.practicum.mymarket.service.CartService;
+import org.springframework.web.reactive.result.view.Rendering;
+import org.springframework.web.server.WebSession;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 @Controller
-@RequiredArgsConstructor
-@RequestMapping("/cart")
+@Validated
 public class CartController {
-
     private final CartService cartService;
 
-    @GetMapping("/items")
-    public String cart(@SessionAttribute(required = false) Long cartId, Model model) {
-        if (cartId == null) cartId = 1L;
-
-        CartDto cart = cartService.getCart(cartId);
-
-        model.addAttribute("items", cart.items());
-        model.addAttribute("total", cart.total());
-
-        return "cart";
+    public CartController(CartService cartService) {
+        this.cartService = cartService;
     }
 
     @PostMapping("/items")
-    public String update(
-            @SessionAttribute Long cartId,
-            @RequestParam Long id,
-            @RequestParam CartAction action
-    ) {
-        switch (action) {
-            case CartAction.PLUS -> cartService.add(cartId, id);
-            case CartAction.MINUS -> cartService.minus(cartId, id);
-            case CartAction.DELETE -> cartService.delete(cartId, id);
-        }
+    public Mono<Rendering> addOrRemoveItemInCart(@ModelAttribute @Valid CartActionRequestDto request,
+                                                 WebSession session) {
+        return cartService.updateItemCount(session, request.id(), request.action())
+                .then(Mono.just(Rendering.redirectTo(
+                        "/items?search=" + request.search() +
+                                "&sort=" + request.sort() +
+                                "&pageNumber=" + request.pageNumber() +
+                                "&pageSize=" + request.pageSize()).build()));
+    }
 
-        return "redirect:/cart/items";
+    @PostMapping("/items/{id}")
+    public Mono<Rendering> addOrRemoveItemInCartById(
+            @PathVariable(required = false) String id,
+            @ModelAttribute @Valid CartActionRequestDto request,
+            WebSession session
+    ) {
+        return cartService.updateItemCount(session, request.id(), request.action())
+                .then(Mono.just(Rendering.redirectTo("/items/" + id).build()));
+    }
+
+    @GetMapping("/cart/items")
+    public Mono<Rendering> getItems(WebSession session) {
+        Flux<ItemDto> itemsFlux = cartService.getCartItems(session)
+                .map(cartItem -> ItemDto.from(cartItem.item(), cartItem.quantity()));
+
+        return Mono.zip(
+                itemsFlux.collectList(),
+                cartService.getCartTotal(session)
+        ).map(tuple -> Rendering.view("cart")
+                .modelAttribute("items", tuple.getT1())
+                .modelAttribute("total", tuple.getT2())
+                .build());
+    }
+
+    @PostMapping("/cart/items")
+    public Mono<Rendering> updateItems(@RequestParam Long id, @RequestParam CartAction action,
+                                       Model model, WebSession session) {
+        Flux<ItemDto> itemsFlux = cartService.updateItemCount(session, id, action)
+                .thenMany(cartService.getCartItems(session))
+                .map(cartItem -> ItemDto.from(cartItem.item(), cartItem.quantity()));
+
+        return Mono.zip(
+                itemsFlux.collectList(),
+                cartService.getCartTotal(session)
+        ).map(tuple -> Rendering.view("cart")
+                .modelAttribute("items", tuple.getT1())
+                .modelAttribute("total", tuple.getT2())
+                .build());
     }
 }
