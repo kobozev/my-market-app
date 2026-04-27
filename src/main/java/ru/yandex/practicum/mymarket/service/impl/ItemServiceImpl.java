@@ -2,6 +2,7 @@ package ru.yandex.practicum.mymarket.service.impl;
 
 import ru.yandex.practicum.mymarket.constants.SortType;
 import ru.yandex.practicum.mymarket.dto.Request.ItemsQueryRequestDto;
+import ru.yandex.practicum.mymarket.exception.ItemNotFoundException;
 import ru.yandex.practicum.mymarket.model.Item;
 import ru.yandex.practicum.mymarket.repository.ItemRepository;
 import org.springframework.data.domain.*;
@@ -11,6 +12,7 @@ import reactor.core.publisher.Mono;
 import ru.yandex.practicum.mymarket.service.ItemService;
 
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class ItemServiceImpl implements ItemService {
@@ -34,12 +36,30 @@ public class ItemServiceImpl implements ItemService {
 
     @Override
     public Mono<Item> getById(Long id) {
-        return itemRepository.findById(id);
+        return itemRepository.findById(id)
+                .switchIfEmpty(Mono.error(new ItemNotFoundException(id)));
     }
 
     @Override
     public Flux<Item> getByIds(Set<Long> ids) {
-        return itemRepository.findAllById(ids);
+        return itemRepository.findAllById(ids)
+                .collectList()
+                .flatMapMany(items -> {
+
+                    Set<Long> foundIds = items.stream()
+                            .map(Item::getId)
+                            .collect(Collectors.toSet());
+
+                    Set<Long> missingIds = ids.stream()
+                            .filter(id -> !foundIds.contains(id))
+                            .collect(Collectors.toSet());
+
+                    if (!missingIds.isEmpty()) {
+                        return Flux.error(new ItemNotFoundException(missingIds));
+                    }
+
+                    return Flux.fromIterable(items);
+                });
     }
 
     private Pageable createPageable(ItemsQueryRequestDto queryRequest) {
