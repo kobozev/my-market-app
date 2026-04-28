@@ -3,59 +3,140 @@ package ru.yandex.practicum.mymarket.repository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.autoconfigure.data.r2dbc.DataR2dbcTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.test.context.ActiveProfiles;
+import reactor.test.StepVerifier;
 import ru.yandex.practicum.mymarket.config.TestcontainersConfig;
 import ru.yandex.practicum.mymarket.model.Item;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
-@DataJpaTest
+@DataR2dbcTest
 @Import(TestcontainersConfig.class)
-@ActiveProfiles("test")
 class ItemRepositoryTest {
 
     @Autowired
-    private ItemRepository repository;
+    private ItemRepository itemRepository;
 
     private Item item1;
     private Item item2;
+    private Item item3;
 
     @BeforeEach
     void setUp() {
-        repository.deleteAll(); // важно при reuse
+        var now = LocalDateTime.now();
 
-        item1 = new Item();
-        item1.setTitle("Laptop");
-        item1.setDescription("Gaming laptop");
-        item1.setPrice(1000L);
+        item1 = buildItem("Laptop Computer", "High performance laptop", 999.99, now);
+        item2 = buildItem("Desktop Computer", "Gaming desktop", 1499.99, now);
+        item3 = buildItem("Wireless Mouse", "Ergonomic mouse", 29.99, now);
 
-        item2 = new Item();
-        item2.setTitle("Phone");
-        item2.setDescription("Smartphone");
-        item2.setPrice(500L);
+        StepVerifier.create(
+                itemRepository.deleteAll()
+                        .thenMany(itemRepository.saveAll(List.of(item1, item2, item3)))
+                        .then()
+        ).verifyComplete();
+    }
 
-        repository.saveAll(List.of(item1, item2));
+    private Item buildItem(String title, String desc, double price, LocalDateTime now) {
+        Item item = Item.builder()
+                .title(title)
+                .description(desc)
+                .price(BigDecimal.valueOf(price))
+                .build();
+        item.setCreatedAt(now);
+        item.setUpdatedAt(now);
+        return item;
     }
 
     @Test
-    void shouldFindAll() {
-        List<Item> items = repository.findAll();
-        assertThat(items).hasSize(2);
+    void findById_shouldReturnItem_whenExists() {
+        StepVerifier.create(
+                        itemRepository.findAll()
+                                .next()
+                                .flatMap(i -> itemRepository.findById(i.getId()))
+                )
+                .expectNextMatches(item -> item.getTitle().equals("Laptop Computer"))
+                .verifyComplete();
     }
 
     @Test
-    void shouldSearchIgnoreCase() {
-        Page<Item> result = repository
-                .findByTitleContainingIgnoreCaseOrDescriptionContainingIgnoreCase(
-                        "LAPTOP", "LAPTOP", PageRequest.of(0, 10)
-                );
+    void findById_shouldReturnEmpty_whenNotExists() {
+        StepVerifier.create(itemRepository.findById(999L))
+                .verifyComplete();
+    }
 
-        assertThat(result.getContent()).hasSize(1);
+    @Test
+    void findAll_shouldReturnAllItems() {
+        StepVerifier.create(itemRepository.findAll())
+                .expectNextCount(3)
+                .verifyComplete();
+    }
+
+    @Test
+    void save_shouldPersistNewItem() {
+        Item newItem = buildItem("Keyboard", "Mechanical keyboard", 89.99, LocalDateTime.now());
+
+        StepVerifier.create(itemRepository.save(newItem))
+                .expectNextMatches(saved ->
+                        saved.getId() != null &&
+                                saved.getTitle().equals("Keyboard"))
+                .verifyComplete();
+
+        StepVerifier.create(itemRepository.count())
+                .expectNext(4L)
+                .verifyComplete();
+    }
+
+    @Test
+    void deleteById_shouldRemoveItem() {
+        StepVerifier.create(
+                        itemRepository.findAll()
+                                .next()
+                                .flatMap(item ->
+                                        itemRepository.deleteById(item.getId())
+                                                .then(itemRepository.existsById(item.getId()))
+                                )
+                )
+                .expectNext(false)
+                .verifyComplete();
+    }
+
+    @Test
+    void findByTitleContainingIgnoreCase_shouldWork() {
+        StepVerifier.create(
+                        itemRepository.findByTitleContainingIgnoreCase(
+                                "computer",
+                                org.springframework.data.domain.PageRequest.of(0, 10)
+                        )
+                )
+                .expectNextCount(2)
+                .verifyComplete();
+    }
+
+    @Test
+    void count_shouldReturnCorrectCount() {
+        StepVerifier.create(itemRepository.count())
+                .expectNext(3L)
+                .verifyComplete();
+    }
+
+    @Test
+    void existsById_shouldReturnTrue_whenExists() {
+        StepVerifier.create(
+                        itemRepository.findAll()
+                                .next()
+                                .flatMap(item -> itemRepository.existsById(item.getId()))
+                )
+                .expectNext(true)
+                .verifyComplete();
+    }
+
+    @Test
+    void existsById_shouldReturnFalse_whenNotExists() {
+        StepVerifier.create(itemRepository.existsById(999L))
+                .expectNext(false)
+                .verifyComplete();
     }
 }

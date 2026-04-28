@@ -3,56 +3,129 @@ package ru.yandex.practicum.mymarket.repository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.autoconfigure.data.r2dbc.DataR2dbcTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.test.context.ActiveProfiles;
+import reactor.test.StepVerifier;
 import ru.yandex.practicum.mymarket.config.TestcontainersConfig;
 import ru.yandex.practicum.mymarket.model.Order;
-import ru.yandex.practicum.mymarket.model.OrderItem;
 
-import java.util.ArrayList;
+import java.time.LocalDateTime;
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
-@DataJpaTest
+@DataR2dbcTest
 @Import(TestcontainersConfig.class)
-@ActiveProfiles("test")
 class OrderRepositoryTest {
 
     @Autowired
-    private OrderRepository repository;
+    private OrderRepository orderRepository;
 
-    private Order order;
+    private Order order1;
+    private Order order2;
+    private Order order3;
 
     @BeforeEach
     void setUp() {
-        repository.deleteAll();
+        var now = LocalDateTime.now();
 
-        OrderItem item = new OrderItem();
-        item.setItemId(1L);
-        item.setTitle("Laptop");
-        item.setPrice(1000L);
-        item.setCount(2);
+        order1 = buildOrder(now);
+        order2 = buildOrder(now);
+        order3 = buildOrder(now);
 
-        order = new Order();
-        order.setItems(new ArrayList<>(List.of(item)));
-        order.setTotalSum(2000L);
+        StepVerifier.create(
+                orderRepository.deleteAll()
+                        .thenMany(orderRepository.saveAll(List.of(order1, order2, order3)))
+                        .then()
+        ).verifyComplete();
+    }
 
-        order = repository.save(order);
+    private Order buildOrder(LocalDateTime now) {
+        Order order = new Order();
+        order.setCreatedAt(now);
+        order.setUpdatedAt(now);
+        return order;
     }
 
     @Test
-    void shouldSaveOrder() {
-        Order found = repository.findById(order.getId()).orElseThrow();
+    void save_shouldPersistOrder() {
+        Order newOrder = buildOrder(LocalDateTime.now());
 
-        assertThat(found.getItems()).hasSize(1);
+        StepVerifier.create(orderRepository.save(newOrder))
+                .expectNextMatches(saved ->
+                        saved.getId() != null &&
+                                saved.getCreatedAt() != null)
+                .verifyComplete();
     }
 
     @Test
-    void shouldDeleteOrder() {
-        repository.delete(order);
+    void findById_shouldReturnOrder_whenExists() {
+        StepVerifier.create(
+                        orderRepository.findAll()
+                                .next()
+                                .flatMap(order -> orderRepository.findById(order.getId()))
+                )
+                .expectNextMatches(found -> found.getId() != null)
+                .verifyComplete();
+    }
 
-        assertThat(repository.findAll()).isEmpty();
+    @Test
+    void findById_shouldReturnEmpty_whenNotExists() {
+        StepVerifier.create(orderRepository.findById(999L))
+                .verifyComplete();
+    }
+
+    @Test
+    void findAll_shouldReturnAllOrders() {
+        StepVerifier.create(orderRepository.findAll())
+                .expectNextCount(3)
+                .verifyComplete();
+    }
+
+    @Test
+    void count_shouldReturnCorrectCount() {
+        StepVerifier.create(orderRepository.count())
+                .expectNext(3L)
+                .verifyComplete();
+    }
+
+    @Test
+    void existsById_shouldReturnTrue_whenExists() {
+        StepVerifier.create(
+                        orderRepository.findAll()
+                                .next()
+                                .flatMap(order -> orderRepository.existsById(order.getId()))
+                )
+                .expectNext(true)
+                .verifyComplete();
+    }
+
+    @Test
+    void existsById_shouldReturnFalse_whenNotExists() {
+        StepVerifier.create(orderRepository.existsById(999L))
+                .expectNext(false)
+                .verifyComplete();
+    }
+
+    @Test
+    void deleteById_shouldRemoveOrder() {
+        StepVerifier.create(
+                        orderRepository.findAll()
+                                .next()
+                                .flatMap(order ->
+                                        orderRepository.deleteById(order.getId())
+                                                .then(orderRepository.existsById(order.getId()))
+                                )
+                )
+                .expectNext(false)
+                .verifyComplete();
+    }
+
+    @Test
+    void deleteAll_shouldRemoveAllOrders() {
+        StepVerifier.create(
+                        orderRepository.deleteAll()
+                                .then(orderRepository.count())
+                )
+                .expectNext(0L)
+                .verifyComplete();
     }
 }
