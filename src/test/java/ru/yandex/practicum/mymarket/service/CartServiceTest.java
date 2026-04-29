@@ -1,183 +1,203 @@
 package ru.yandex.practicum.mymarket.service;
 
+import ru.yandex.practicum.mymarket.constants.CartAction;
+import ru.yandex.practicum.mymarket.dto.CartDto;
+import ru.yandex.practicum.mymarket.model.Item;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Primary;
-import org.springframework.test.context.ActiveProfiles;
-import ru.yandex.practicum.mymarket.dto.CartDto;
-import ru.yandex.practicum.mymarket.dto.ItemDto;
-import ru.yandex.practicum.mymarket.mapper.ItemMapper;
-import ru.yandex.practicum.mymarket.model.Cart;
-import ru.yandex.practicum.mymarket.model.Item;
-import ru.yandex.practicum.mymarket.repository.CartRepository;
-import ru.yandex.practicum.mymarket.repository.ItemRepository;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.web.server.WebSession;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
+import ru.yandex.practicum.mymarket.service.impl.CartServiceImpl;
 
-import java.util.ArrayList;
-import java.util.Optional;
+import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.*;
 
-@SpringBootTest(classes = {
-        CartService.class,
-        CartServiceTest.MockConfig.class
-})
-@ActiveProfiles("test")
+@ExtendWith(MockitoExtension.class)
 class CartServiceTest {
+    private static final String CART_SESSION_KEY = "SHOPPING_CART";
 
-    @Autowired
-    private CartService cartService;
+    @Mock
+    private ItemService itemService;
 
-    @Autowired
-    private CartRepository cartRepository;
+    @Mock
+    private WebSession session;
 
-    @Autowired
-    private ItemRepository itemRepository;
+    @InjectMocks
+    private CartServiceImpl cartService;
 
-    @Autowired
-    private ItemMapper mapper;
-
-    @TestConfiguration
-    static class MockConfig {
-
-        @Bean
-        @Primary
-        CartRepository cartRepository() {
-            return Mockito.mock(CartRepository.class);
-        }
-
-        @Bean
-        @Primary
-        ItemRepository itemRepository() {
-            return Mockito.mock(ItemRepository.class);
-        }
-
-        @Bean
-        @Primary
-        ItemMapper itemMapper() {
-            return Mockito.mock(ItemMapper.class);
-        }
-    }
-
-    private Cart cart;
-    private Item item;
+    private CartDto CartDto;
+    private Item testItem1;
+    private Item testItem2;
+    private Map<String, Object> sessionAttributes;
 
     @BeforeEach
     void setUp() {
-        cart = new Cart();
-        cart.setId(1L);
-        cart.setItems(new ArrayList<>());
+        CartDto = new CartDto();
+        sessionAttributes = new HashMap<>();
 
-        item = new Item();
-        item.setId(10L);
-        item.setPrice(100L);
-        item.setTitle("Item");
-
-        Mockito.when(cartRepository.findById(1L))
-                .thenReturn(Optional.of(cart));
-
-        Mockito.when(itemRepository.findById(10L))
-                .thenReturn(Optional.of(item));
+        testItem1 = Item.builder().id(1L).title("Item 1").price(BigDecimal.valueOf(10.0)).build();
+        testItem2 = Item.builder().id(2L).title("Item 2").price(BigDecimal.valueOf(20.0)).build();
     }
 
     @Test
-    void shouldCreateCartIfNotExists() {
-        Mockito.when(cartRepository.findById(2L)).thenReturn(Optional.empty());
-        Mockito.when(cartRepository.save(any()))
-                .thenAnswer(i -> i.getArgument(0));
+    void getCart_shouldCreateNewCart_whenCartDoesNotExist() {
+        when(session.getAttribute(CART_SESSION_KEY)).thenReturn(null);
+        when(session.getAttributes()).thenReturn(sessionAttributes);
 
-        Cart result = cartService.getOrCreate(2L);
+        StepVerifier.create(cartService.getCart(session))
+                .assertNext(cart -> {
+                    assertNotNull(cart);
+                    assertTrue(cart.isEmpty());
+                })
+                .verifyComplete();
 
-        assertNotNull(result);
-        verify(cartRepository).save(any());
+        assertTrue(sessionAttributes.containsKey(CART_SESSION_KEY));
     }
 
     @Test
-    void shouldAddNewItem() {
-        cartService.add(1L, 10L);
+    void getCart_shouldReturnExistingCart_whenCartExists() {
+        when(session.getAttribute(CART_SESSION_KEY)).thenReturn(CartDto);
 
-        assertEquals(1, cart.getItems().size());
-        assertEquals(1, cart.getItems().getFirst().getCount());
+        StepVerifier.create(cartService.getCart(session))
+                .assertNext(cart -> assertSame(CartDto, cart))
+                .verifyComplete();
+
+        verify(session, never()).getAttributes();
     }
 
     @Test
-    void shouldIncreaseCount() {
-        cartService.add(1L, 10L);
-        cartService.add(1L, 10L);
+    void updateItemCount_shouldAddItem_whenActionIsPlus() {
+        when(session.getAttribute(CART_SESSION_KEY)).thenReturn(CartDto);
 
-        assertEquals(2, cart.getItems().getFirst().getCount());
+        StepVerifier.create(cartService.updateItemCount(session, 1L, CartAction.PLUS))
+                .verifyComplete();
+
+        assertEquals(1, CartDto.getItemCountById(1L));
     }
 
     @Test
-    void shouldDecreaseCount() {
-        cartService.add(1L, 10L);
-        cartService.add(1L, 10L);
+    void updateItemCount_shouldIncreaseQuantity_whenItemAlreadyExists() {
+        CartDto.addItem(1L, 3);
+        when(session.getAttribute(CART_SESSION_KEY)).thenReturn(CartDto);
 
-        cartService.minus(1L, 10L);
+        StepVerifier.create(cartService.updateItemCount(session, 1L, CartAction.PLUS))
+                .verifyComplete();
 
-        assertEquals(1, cart.getItems().getFirst().getCount());
+        assertEquals(4, CartDto.getItemCountById(1L));
     }
 
     @Test
-    void shouldRemoveItemWhenCountZero() {
-        cartService.add(1L, 10L);
+    void updateItemCount_shouldDecreaseQuantity_whenActionIsMinus() {
+        CartDto.addItem(1L, 5);
+        when(session.getAttribute(CART_SESSION_KEY)).thenReturn(CartDto);
 
-        cartService.minus(1L, 10L);
+        StepVerifier.create(cartService.updateItemCount(session, 1L, CartAction.MINUS))
+                .verifyComplete();
 
-        assertTrue(cart.getItems().isEmpty());
+        assertEquals(4, CartDto.getItemCountById(1L));
     }
 
     @Test
-    void shouldDeleteItem() {
-        cartService.add(1L, 10L);
+    void updateItemCount_shouldRemoveItem_whenQuantityBecomesZero() {
+        CartDto.addItem(1L, 1);
+        when(session.getAttribute(CART_SESSION_KEY)).thenReturn(CartDto);
 
-        cartService.delete(1L, 10L);
+        StepVerifier.create(cartService.updateItemCount(session, 1L, CartAction.MINUS))
+                .verifyComplete();
 
-        assertTrue(cart.getItems().isEmpty());
+        assertEquals(0, CartDto.getItemCountById(1L));
     }
 
     @Test
-    void shouldIgnoreDeleteIfItemNotExists() {
-        cartService.delete(1L, 999L);
+    void updateItemCount_shouldRemoveItem_whenActionIsDelete() {
+        CartDto.addItem(1L, 5);
+        when(session.getAttribute(CART_SESSION_KEY)).thenReturn(CartDto);
 
-        assertTrue(cart.getItems().isEmpty());
+        StepVerifier.create(cartService.updateItemCount(session, 1L, CartAction.DELETE))
+                .verifyComplete();
+
+        assertEquals(0, CartDto.getItemCountById(1L));
+        assertTrue(CartDto.isEmpty());
     }
 
     @Test
-    void shouldClearCart() {
-        cartService.add(1L, 10L);
+    void removeItem_shouldRemoveItemFromCart() {
+        CartDto.addItem(1L, 3);
+        CartDto.addItem(2L, 2);
+        when(session.getAttribute(CART_SESSION_KEY)).thenReturn(CartDto);
 
-        cartService.clear(1L);
+        StepVerifier.create(cartService.removeItem(session, 1L))
+                .verifyComplete();
 
-        assertTrue(cart.getItems().isEmpty());
+        assertEquals(0, CartDto.getItemCountById(1L));
+        assertEquals(2, CartDto.getItemCountById(2L));
     }
 
     @Test
-    void shouldCalculateTotal() {
-        cartService.add(1L, 10L);
-        cartService.add(1L, 10L);
+    void getCartItems_shouldReturnEmptyFlux_whenCartIsEmpty() {
+        when(session.getAttribute(CART_SESSION_KEY)).thenReturn(CartDto);
 
-        Mockito.when(mapper.toDto(any(), anyInt()))
-                .thenReturn(new ItemDto(10L, "t", "d", "img", 100L, 2));
-
-        CartDto dto = cartService.getCart(1L);
-
-        assertEquals(200L, dto.total());
-        assertEquals(1, dto.items().size());
+        StepVerifier.create(cartService.getCartItems(session))
+                .verifyComplete();
     }
 
     @Test
-    void shouldReturnEmptyCartDto() {
-        CartDto dto = cartService.getCart(1L);
+    void getCartItems_shouldReturnItemsWithQuantities() {
+        CartDto.addItem(1L, 2);
+        CartDto.addItem(2L, 3);
+        when(session.getAttribute(CART_SESSION_KEY)).thenReturn(CartDto);
+        when(itemService.getById(1L)).thenReturn(Mono.just(testItem1));
+        when(itemService.getById(2L)).thenReturn(Mono.just(testItem2));
 
-        assertEquals(0, dto.total());
-        assertTrue(dto.items().isEmpty());
+        StepVerifier.create(cartService.getCartItems(session).collectList())
+                .assertNext(items -> {
+                    assertEquals(2, items.size());
+                    assertTrue(items.stream().anyMatch(ci -> ci.item().getId() == 1L && ci.quantity() == 2));
+                    assertTrue(items.stream().anyMatch(ci -> ci.item().getId() == 2L && ci.quantity() == 3));
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void getCartTotal_shouldCalculateCorrectTotal() {
+        CartDto.addItem(1L, 2);  // 2 * 10.0 = 20.0
+        CartDto.addItem(2L, 3);  // 3 * 20.0 = 60.0
+        when(session.getAttribute(CART_SESSION_KEY)).thenReturn(CartDto);
+        when(itemService.getById(1L)).thenReturn(Mono.just(testItem1));
+        when(itemService.getById(2L)).thenReturn(Mono.just(testItem2));
+
+        StepVerifier.create(cartService.getCartTotal(session))
+                .assertNext(total -> assertEquals(80.0, total.doubleValue(), 0.01))
+                .verifyComplete();
+    }
+
+    @Test
+    void getCartTotal_shouldReturnZero_whenCartIsEmpty() {
+        when(session.getAttribute(CART_SESSION_KEY)).thenReturn(CartDto);
+
+        StepVerifier.create(cartService.getCartTotal(session))
+                .assertNext(total -> assertEquals(BigDecimal.ZERO, total))
+                .verifyComplete();
+    }
+
+    @Test
+    void clear_shouldEmptyTheCart() {
+        CartDto.addItem(1L, 3);
+        CartDto.addItem(2L, 2);
+        when(session.getAttribute(CART_SESSION_KEY)).thenReturn(CartDto);
+
+        StepVerifier.create(cartService.clear(session))
+                .verifyComplete();
+
+        assertTrue(CartDto.isEmpty());
     }
 }
