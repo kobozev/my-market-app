@@ -2,7 +2,7 @@ package ru.yandex.practicum.mymarket.service.impl;
 
 import ru.yandex.practicum.mymarket.dto.CartItemDto;
 import ru.yandex.practicum.mymarket.exception.ItemNotFoundException;
-import ru.yandex.practicum.mymarket.exception.OrderNotFoundException;
+import ru.yandex.practicum.mymarket.model.Item;
 import ru.yandex.practicum.mymarket.model.Order;
 import ru.yandex.practicum.mymarket.model.OrderItem;
 import ru.yandex.practicum.mymarket.repository.ItemRepository;
@@ -23,7 +23,9 @@ public class OrderServiceImpl implements OrderService {
     private final OrderItemRepository orderItemRepository;
     private final ItemRepository itemRepository;
 
-    public OrderServiceImpl(OrderRepository orderRepository, OrderItemRepository orderItemRepository, ItemRepository itemRepository) {
+    public OrderServiceImpl(OrderRepository orderRepository,
+                            OrderItemRepository orderItemRepository,
+                            ItemRepository itemRepository) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.itemRepository = itemRepository;
@@ -32,70 +34,30 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public Flux<Order> getAll() {
         return orderRepository.findAll()
-
-                .flatMap(order ->
-                        orderItemRepository.findByOrderId(order.getId())
-
-                                .flatMap(orderItem ->
-                                        itemRepository.findById(orderItem.getItemId())
-                                                .switchIfEmpty(Mono.error(
-                                                        new ItemNotFoundException(orderItem.getItemId())
-                                                ))
-                                                .map(item -> {
-                                                    orderItem.setItem(item);
-                                                    return orderItem;
-                                                })
-                                )
-
-                                .collectList()
-                                .map(orderItems -> {
-                                    orderItems.sort(Comparator.comparing(OrderItem::getItemId));
-                                    order.setOrderItems(orderItems);
-                                    return order;
-                                })
-                )
-
+                .flatMap(this::enrichOrder)
                 .sort(Comparator.comparing(Order::getId));
     }
 
     @Override
     public Mono<Order> getById(long id) {
         return orderRepository.findById(id)
-                .switchIfEmpty(Mono.error(new OrderNotFoundException(id)))
-
-                .flatMap(order ->
-                        orderItemRepository.findByOrderId(order.getId())
-
-                                .flatMap(orderItem ->
-                                        itemRepository.findById(orderItem.getItemId())
-                                                .switchIfEmpty(Mono.error(
-                                                        new ItemNotFoundException(orderItem.getItemId())
-                                                ))
-                                                .map(item -> {
-                                                    orderItem.setItem(item);
-                                                    return orderItem;
-                                                })
-                                )
-
-                                .collectList()
-                                .map(orderItems -> {
-                                    order.setOrderItems(orderItems);
-                                    return order;
-                                })
-                );
+                .flatMap(this::enrichOrder);
     }
 
     @Override
     public Mono<Order> create(List<CartItemDto> cartItems) {
+
         if (cartItems == null || cartItems.isEmpty()) {
             return Mono.error(new IllegalArgumentException("cartItems must not be null or empty"));
         }
 
-        var ids = cartItems.stream()
+        List<Long> ids = cartItems.stream()
                 .map(ci -> ci.item().getId())
                 .toList();
 
-        return itemRepository.findAllById(ids)
+        Flux<Item> itemsFlux = itemRepository.findAllById(ids);
+
+        return itemsFlux
                 .collectList()
                 .flatMap(items -> {
 
@@ -108,9 +70,9 @@ public class OrderServiceImpl implements OrderService {
                     return orderRepository.save(order)
                             .flatMap(savedOrder -> {
 
-                                var orderItems = cartItems.stream()
+                                List<OrderItem> orderItems = cartItems.stream()
                                         .map(ci -> {
-                                            var oi = new OrderItem(ci.item(), ci.quantity());
+                                            OrderItem oi = new OrderItem(ci.item(), ci.quantity());
                                             oi.setOrder(savedOrder);
                                             return oi;
                                         })
@@ -123,6 +85,23 @@ public class OrderServiceImpl implements OrderService {
                                             return savedOrder;
                                         });
                             });
+                });
+    }
+
+    private Mono<Order> enrichOrder(Order order) {
+        return orderItemRepository.findByOrderId(order.getId())
+                .flatMap(orderItem ->
+                        itemRepository.findById(orderItem.getItemId())
+                                .map(item -> {
+                                    orderItem.setItem(item);
+                                    return orderItem;
+                                })
+                )
+                .collectList()
+                .map(orderItems -> {
+                    orderItems.sort(Comparator.comparing(OrderItem::getItemId));
+                    order.setOrderItems(orderItems);
+                    return order;
                 });
     }
 }
