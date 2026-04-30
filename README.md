@@ -1,110 +1,204 @@
-# 🛒 My Market App
+# My Market App
 
-Web-приложение "Витрина интернет-магазина", реализованное на Java 21 с использованием Spring Boot 3.5, Spring Data JPA, Thymeleaf и PostgreSQL. Проект поддерживает Docker-контейнеризацию и интеграционные тесты с Testcontainers.
+Реактивное Web-приложение интернет-магазина, разработанное на Spring Boot с использованием **Spring WebFlux** и реактивного стека данных (R2DBC).
 
----
+## Описание
 
-## ⚙️ Стек технологий
+My Market App — учебный проект интернет-магазина, построенный на полностью реактивной архитектуре.
 
-- **Фреймворк**: Spring Boot 3.5.12
-- **Язык**: Java 21
-- **База данных**: PostgreSQL 16
-- **ORM**: Spring Data JPA (Hibernate)
-- **Web слой**: Spring MVC + Thymeleaf
-- **Валидация**: Spring Validation
-- **Мониторинг**: Spring Boot Actuator
-- **Сборка проекта**: Maven
-- **Контейнеризация**: Docker, Docker Compose
-- **Тестирование**:
-    - JUnit 5
-    - Spring Boot Test
-    - Spring MVC Test (MockMvc)
-    - Spring Data JPA Test
-    - Testcontainers (PostgreSQL 16)
+Приложение позволяет:
+- Просматривать каталог товаров
+- Добавлять товары в корзину (на основе WebSession)
+- Управлять корзиной (количество, очистка)
+- Оформлять заказы из корзины
+- Просматривать список заказов
+- Просматривать детали заказа
+
+Архитектура построена на неблокирующем I/O и реактивных потоках (`Mono` / `Flux`).
 
 ---
 
-## 📦 Сборка проекта
+## Технологии
 
-Собрать проект можно с помощью Maven:
+### Backend (реактивный стек)
+- Spring Boot 3.5.12
+- Spring WebFlux — реактивный веб-слой
+- Project Reactor — Mono / Flux
+- Spring Data R2DBC — реактивный доступ к БД
+- R2DBC PostgreSQL driver — неблокирующий драйвер PostgreSQL
+- Thymeleaf (reactive rendering) — серверные HTML представления
+- Spring Validation — валидация входных данных
+- Spring Boot Actuator — мониторинг приложения
 
-```bash
-mvn clean package
+---
+
+### База данных
+- PostgreSQL 16 — основная БД
+- R2DBC — реактивное подключение к базе
+
+---
+
+### Тестирование
+- JUnit 5
+- Mockito
+- Spring WebTestClient — тестирование WebFlux контроллеров
+- Reactor Test — тестирование реактивных цепочек
+- Testcontainers
+  - PostgreSQL container
+  - R2DBC Testcontainers integration
+- Spring Boot Test (WebFlux only)
+
+---
+
+### Сборка
+- Maven 3.9+
+- Spring Boot Maven Plugin
+
+---
+
+## Архитектура
+
+Приложение использует полностью реактивный pipeline:
+
+```
+Controller (WebFlux)
+        ↓ Mono / Flux
+Service Layer (business logic)
+        ↓ Mono / Flux
+Repository Layer (R2DBC)
+        ↓ Reactive Streams
+PostgreSQL
 ```
 
-После сборки будет создан JAR-файл:
+---
 
-`target/my-market-app-1.0.0.jar`
+## Основные компоненты
 
-## 🚀 Запуск приложения
+### Controllers
 
-Вариант 1: через Maven
+- ItemController — каталог товаров
+- CartController — корзина (WebSession)
+- OrderController — оформление и просмотр заказов
+
+---
+
+### Services
+
+- ItemService — бизнес-логика товаров
+- CartService — работа с корзиной в WebSession
+- OrderService — создание и получение заказов
+
+---
+
+### Repositories
+
+- ItemRepository — реактивный доступ к товарам
+- OrderRepository — реактивный доступ к заказам
+- OrderItemRepository — позиции заказа
+
+---
+
+## Особенности реализации
+
+### Реактивная модель
+Все операции используют:
+- Mono<T> — 0..1 элемент
+- Flux<T> — 0..N элементов
+
+### Работа с корзиной
+Корзина хранится в:
+- WebSession
+- не в базе данных
+
+### Заказы
+- создаются из корзины
+- сохраняются через R2DBC
+- имеют связь с OrderItem
+
+---
+
+## Установка и запуск
+
+### Требования
+- Java 21+
+- Docker
+- Maven 3.9+
+
+---
+
+### 1. Запуск базы данных
+
+```bash
+docker-compose -f docker/docker-compose.yml up -d
+```
+
+Запускается:
+- PostgreSQL
+- база данных marketdb
+
+---
+
+### 2. Запуск приложения
+
 ```bash
 mvn spring-boot:run
 ```
 
-Вариант 2: через JAR
+или
+
 ```bash
+mvn clean package
 java -jar target/my-market-app-1.0.0.jar
 ```
 
-После запуска приложение будет доступно по адресу:
+---
+
+### 3. Доступ к приложению
+
 ```
 http://localhost:8080
 ```
 
-## 🧪 Запуск тестов
+---
 
-Проект использует Testcontainers, поэтому для интеграционных тестов требуется установленный Docker.
+## Тестирование
 
-Проверка Docker:
-```bash
-docker ps
-```
-Запуск всех тестов:
+### Запуск всех тестов
+
 ```bash
 mvn clean test
 ```
-Запуск конкретного теста:
+
+### Запуск конкретного теста
 ```bash
 mvn test -Dtest=CartServiceTest
 ```
 
-## 🐳Запуск через Docker
-1. Сборка образа
-```bash
-docker build -t my-market-app .
-```
-2. Запуск через Docker Compose
-```bash
-docker compose up --build
-```
-3. Остановка
-```bash
-docker compose down
-```
+---
 
-##   🗄️ База данных
+### Testcontainers
 
-Приложение использует PostgreSQL 16.
+Интеграционные тесты используют:
+- PostgreSQL container
+- R2DBC driver
 
-| Переменная окружения | Описание                             |
-| --- |--------------------------------------|
-| `SPRING_DATASOURCE_URL` | JDBC‑строка подключения к PostgreSQL |
-| `SPRING_DATASOURCE_USERNAME` | Пользователь базы данных             |
-| `SPRING_DATASOURCE_PASSWORD` | Пароль пользователя базы данных      |
-| `SPRING_JPA_HIBERNATE_DDL_AUTO` | Стратегия генерации схемы            |
-	
-## 📊 Actuator (Health Check)
+---
 
-Проверка состояния приложения:
-```bash
-GET http://localhost:8080/actuator/health
-```
+### WebFlux тесты
 
-## 🧪 Особенности тестирования
-* Repository тесты используют Testcontainers PostgreSQL 16
-* Service layer тестируется через Spring Boot Test
-* Controller layer тестируется через MockMvc
-* Контекст поднимается с профилем test
-* База создаётся автоматически (ddl-auto: create-drop)
+Контроллеры тестируются через:
+- @WebFluxTest
+- WebTestClient
+- Mockito
+
+---
+
+## Примечания по архитектуре
+
+- Spring MVC полностью исключён
+- Используется только WebFlux stack
+- JDBC отсутствует — только R2DBC
+- Контроллеры возвращают Rendering (server-side views)
+- Все I/O операции неблокирующие
+
+---
