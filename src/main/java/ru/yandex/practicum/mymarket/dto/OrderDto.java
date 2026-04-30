@@ -11,6 +11,10 @@ public record OrderDto(
         BigDecimal totalSum
 ) {
     public static OrderDto from(Order order) {
+        if (order == null) {
+            return null;
+        }
+
         var orderItems = order.getOrderItems();
         var totalSum = orderItems.stream()
                 .map(x -> x.getPrice().multiply(new BigDecimal(x.getQuantity())))
@@ -18,6 +22,6 @@ public record OrderDto(
 
         var items = orderItems.stream()
                 .map(orderItem-> ItemDto.from(orderItem, orderItem.getQuantity())).toList();
-        return new OrderDto(order.getId(), items, totalSum);
+        return new OrderDto(order.getId() == null ? 0L : order.getId(), items, totalSum);
     }
 }

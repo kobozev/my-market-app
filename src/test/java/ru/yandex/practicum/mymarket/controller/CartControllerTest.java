@@ -2,50 +2,114 @@ package ru.yandex.practicum.mymarket.controller;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.test.context.ActiveProfiles;
+import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
-import ru.yandex.practicum.mymarket.dto.CartDto;
+import org.springframework.test.web.reactive.server.WebTestClient;
+import org.springframework.web.server.WebSession;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import ru.yandex.practicum.mymarket.constants.CartAction;
+import ru.yandex.practicum.mymarket.dto.CartItemDto;
+import ru.yandex.practicum.mymarket.model.Item;
 import ru.yandex.practicum.mymarket.service.CartService;
 
-import java.util.List;
+import java.math.BigDecimal;
 
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
+import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.eq;
 
-@WebMvcTest(CartController.class)
-@ActiveProfiles("test")
+@WebFluxTest(CartController.class)
+@Import(TestViewConfig.class)
 class CartControllerTest {
 
     @Autowired
-    private MockMvc mockMvc;
+    protected WebTestClient webTestClient;
 
     @MockitoBean
-    private CartService cartService;
+    protected CartService cartService;
 
     @Test
-    void shouldReturnCartPage() throws Exception {
-        when(cartService.getCart(1L))
-                .thenReturn(new CartDto(List.of(), 0L));
+    void getCartItems_shouldReturnCartPage() {
+        Item item = Item.builder().id(1L).title("Item").price(BigDecimal.TEN).build();
 
-        mockMvc.perform(get("/cart/items").sessionAttr("cartId", 1L))
-                .andExpect(status().isOk())
-                .andExpect(view().name("cart"));
+        when(cartService.getCartItems(any(WebSession.class)))
+                .thenReturn(Flux.just(new CartItemDto(item, 2)));
+
+        when(cartService.getCartTotal(any(WebSession.class)))
+                .thenReturn(Mono.just(BigDecimal.valueOf(20)));
+
+        webTestClient.get()
+                .uri("/cart/items")
+                .exchange()
+                .expectStatus().isOk();
+
+        verify(cartService).getCartItems(any(WebSession.class));
+        verify(cartService).getCartTotal(any(WebSession.class));
     }
 
     @Test
-    void shouldAddItem() throws Exception {
-        mockMvc.perform(post("/cart/items")
-                        .sessionAttr("cartId", 1L)
-                        .param("id", "10")
-                        .param("action", "PLUS"))
-                .andExpect(status().is3xxRedirection());
+    void addOrRemoveToCart_shouldUpdateCart_whenActionIsPlus() {
+        when(cartService.updateItemCount(any(WebSession.class), anyLong(), any()))
+                .thenReturn(Mono.empty());
 
-        verify(cartService).add(1L, 10L);
+        when(cartService.getCartItems(any(WebSession.class)))
+                .thenReturn(Flux.empty());
+
+        when(cartService.getCartTotal(any(WebSession.class)))
+                .thenReturn(Mono.just(BigDecimal.ZERO));
+
+        webTestClient.post()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/cart/items")
+                        .queryParam("id", "1")
+                        .queryParam("action", "PLUS")
+                        .build())
+                .exchange()
+                .expectStatus().isOk();
+
+        verify(cartService).updateItemCount(any(WebSession.class), eq(1L), eq(CartAction.PLUS));
+    }
+
+    @Test
+    void addOrRemoveToCart_shouldUpdateCart_whenActionIsMinus() {
+        when(cartService.updateItemCount(any(WebSession.class), eq(1L), eq(CartAction.MINUS)))
+                .thenReturn(Mono.empty());
+
+        webTestClient.post()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/items")
+                        .queryParam("id", "1")
+                        .queryParam("action", "MINUS")
+                        .build())
+                .exchange()
+                .expectStatus().is3xxRedirection();
+
+        verify(cartService).updateItemCount(any(WebSession.class), eq(1L), eq(CartAction.MINUS));
+    }
+
+    @Test
+    void updateCartFromCartPage_shouldUpdateAndReturnCartPage() {
+        when(cartService.updateItemCount(any(WebSession.class), eq(1L), eq(CartAction.PLUS)))
+                .thenReturn(Mono.empty());
+
+        when(cartService.getCartItems(any(WebSession.class)))
+                .thenReturn(Flux.empty());
+
+        when(cartService.getCartTotal(any(WebSession.class)))
+                .thenReturn(Mono.just(BigDecimal.ZERO));
+
+        webTestClient.post()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/cart/items")
+                        .queryParam("id", "1")
+                        .queryParam("action", "PLUS")
+                        .build())
+                .exchange()
+                .expectStatus().isOk();
+
+        verify(cartService).updateItemCount(any(WebSession.class), eq(1L), eq(CartAction.PLUS));
+        verify(cartService).getCartItems(any(WebSession.class));
+        verify(cartService).getCartTotal(any(WebSession.class));
     }
 }

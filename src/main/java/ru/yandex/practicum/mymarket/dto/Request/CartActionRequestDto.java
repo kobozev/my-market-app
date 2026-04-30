@@ -11,8 +11,7 @@ public record CartActionRequestDto(
         @NotNull(message = "Item ID required")
         @Min(value = 1, message = "Item ID must be positive")
         Long id,
-        @NotEmpty(message = "Action required")
-        @Pattern(regexp = "^(PLUS|MINUS|1|-1)$", message = "Invalid action")
+        @NotNull(message = "Action required")
         CartAction action,
         String search,
         SortType sort,

@@ -5,6 +5,7 @@ import org.springframework.http.*;
 import org.springframework.validation.BindException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.MethodNotAllowedException;
 import org.springframework.web.server.ServerWebExchange;
 import ru.yandex.practicum.mymarket.dto.Response.ErrorResponseDto;
 import ru.yandex.practicum.mymarket.exception.ItemNotFoundException;
@@ -88,9 +89,9 @@ public class GlobalExceptionHandler {
     }
 
     // 500
-    @ExceptionHandler(Exception.class)
+    @ExceptionHandler(Throwable.class)
     public ResponseEntity<ErrorResponseDto> handleGeneric(
-            Exception ex,
+            Throwable ex,
             ServerWebExchange exchange) {
 
         log.error("Unexpected error", ex);
@@ -100,6 +101,21 @@ public class GlobalExceptionHandler {
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "INTERNAL_ERROR",
                 "Произошла непредвиденная ошибка"
+        );
+    }
+
+    @ExceptionHandler(MethodNotAllowedException.class)
+    public ResponseEntity<ErrorResponseDto> handleMethodNotAllowed(
+            MethodNotAllowedException ex,
+            ServerWebExchange exchange) {
+
+        log.warn("Method not allowed: {}", ex.getMessage());
+
+        return build(
+                exchange,
+                HttpStatus.METHOD_NOT_ALLOWED,
+                "METHOD_NOT_ALLOWED",
+                "Метод запроса не поддерживается"
         );
     }
 
