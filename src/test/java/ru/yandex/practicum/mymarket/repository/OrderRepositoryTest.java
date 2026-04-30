@@ -4,17 +4,41 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.data.r2dbc.DataR2dbcTest;
-import org.springframework.context.annotation.Import;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 import reactor.test.StepVerifier;
-import ru.yandex.practicum.mymarket.config.TestcontainersConfig;
 import ru.yandex.practicum.mymarket.model.Order;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 @DataR2dbcTest
-@Import(TestcontainersConfig.class)
+@Testcontainers
 class OrderRepositoryTest {
+
+    @Container
+    static PostgreSQLContainer<?> postgres =
+            new PostgreSQLContainer<>("postgres:16-alpine")
+                    .withDatabaseName("mymarketdb")
+                    .withUsername("postgres")
+                    .withPassword("postgres");
+
+    @DynamicPropertySource
+    static void registerProps(DynamicPropertyRegistry registry) {
+
+        registry.add("spring.r2dbc.url", () ->
+                "r2dbc:postgresql://" +
+                        postgres.getHost() + ":" +
+                        postgres.getFirstMappedPort() +
+                        "/" + postgres.getDatabaseName()
+        );
+
+        registry.add("spring.r2dbc.username", postgres::getUsername);
+        registry.add("spring.r2dbc.password", postgres::getPassword);
+    }
 
     @Autowired
     private OrderRepository orderRepository;

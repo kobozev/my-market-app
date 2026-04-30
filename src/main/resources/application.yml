@@ -5,10 +5,14 @@ spring:
   application:
     name: my-market-app
 
-  r2dbc:
-    url: r2dbc:postgresql://localhost:5432/mymarket
-    username: postgres
-    password: postgres
+  spring:
+    r2dbc:
+      url: r2dbc:postgresql://localhost:5432/marketdb
+      username: postgres
+      password: postgres
+    sql:
+      init:
+        mode: never
 
   thymeleaf:
     cache: false

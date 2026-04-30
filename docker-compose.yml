@@ -6,16 +6,20 @@ services:
     image: postgres:16-alpine
     container_name: my-market-db
     restart: unless-stopped
+
     environment:
-      POSTGRES_DB: mymarket
-      POSTGRES_USER: mymarket
-      POSTGRES_PASSWORD: mymarket
+      POSTGRES_DB: mymarketdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
     ports:
       - "5432:5432"
+
     volumes:
       - pgdata:/var/lib/postgresql/data
+
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U mymarket -d mymarket"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d mymarketdb"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -24,6 +28,7 @@ services:
     build: .
     container_name: my-market-app
     restart: unless-stopped
+
     depends_on:
       db:
         condition: service_healthy
@@ -33,15 +38,10 @@ services:
 
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/mymarket
-      SPRING_DATASOURCE_USERNAME: mymarket
-      SPRING_DATASOURCE_PASSWORD: mymarket
 
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
-      SPRING_JPA_SHOW_SQL: "true"
-
-    volumes:
-      - ./images:/app/static/images
+      SPRING_R2DBC_URL: r2dbc:postgresql://db:5432/mymarketdb
+      SPRING_R2DBC_USERNAME: postgres
+      SPRING_R2DBC_PASSWORD: postgres
 
 volumes:
   pgdata:
