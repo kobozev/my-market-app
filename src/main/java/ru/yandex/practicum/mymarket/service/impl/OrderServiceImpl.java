@@ -1,5 +1,6 @@
 package ru.yandex.practicum.mymarket.service.impl;
 
+import org.springframework.transaction.reactive.TransactionalOperator;
 import ru.yandex.practicum.mymarket.dto.CartItemDto;
 import ru.yandex.practicum.mymarket.exception.ItemNotFoundException;
 import ru.yandex.practicum.mymarket.model.Item;
@@ -22,13 +23,16 @@ public class OrderServiceImpl implements OrderService {
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final ItemRepository itemRepository;
+    private final TransactionalOperator transactionalOperator;
 
     public OrderServiceImpl(OrderRepository orderRepository,
                             OrderItemRepository orderItemRepository,
-                            ItemRepository itemRepository) {
+                            ItemRepository itemRepository,
+                            TransactionalOperator transactionalOperator) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.itemRepository = itemRepository;
+        this.transactionalOperator = transactionalOperator;
     }
 
     @Override
@@ -51,41 +55,50 @@ public class OrderServiceImpl implements OrderService {
             return Mono.error(new IllegalArgumentException("cartItems must not be null or empty"));
         }
 
-        List<Long> ids = cartItems.stream()
-                .map(ci -> ci.item().getId())
-                .toList();
+        return Mono.defer(() -> {
 
-        Flux<Item> itemsFlux = itemRepository.findAllById(ids);
+                    List<Long> ids = cartItems.stream()
+                            .map(ci -> ci.item().getId())
+                            .toList();
 
-        return itemsFlux
-                .collectList()
-                .flatMap(items -> {
+                    return itemRepository.findAllById(ids)
+                            .collectMap(Item::getId)
+                            .flatMap(itemMap -> {
 
-                    if (items.size() != ids.size()) {
-                        return Mono.error(new ItemNotFoundException("Один или несколько товаров не найдены"));
-                    }
+                                if (itemMap.size() != ids.size()) {
+                                    return Mono.error(new ItemNotFoundException("Один или несколько товаров не найдены"));
+                                }
 
-                    Order order = new Order();
+                                Order order = new Order();
 
-                    return orderRepository.save(order)
-                            .flatMap(savedOrder -> {
+                                return orderRepository.save(order)
+                                        .flatMap(savedOrder -> {
 
-                                List<OrderItem> orderItems = cartItems.stream()
-                                        .map(ci -> {
-                                            OrderItem oi = new OrderItem(ci.item(), ci.quantity());
-                                            oi.setOrder(savedOrder);
-                                            return oi;
-                                        })
-                                        .toList();
+                                            List<OrderItem> orderItems = cartItems.stream()
+                                                    .map(ci -> {
 
-                                return orderItemRepository.saveAll(orderItems)
-                                        .collectList()
-                                        .map(savedItems -> {
-                                            savedOrder.setOrderItems(savedItems);
-                                            return savedOrder;
+                                                        Item itemFromDb = itemMap.get(ci.item().getId());
+
+                                                        if (itemFromDb == null) {
+                                                            throw new ItemNotFoundException("Item not found: " + ci.item().getId());
+                                                        }
+
+                                                        OrderItem oi = new OrderItem(itemFromDb, ci.quantity());
+                                                        oi.setOrder(savedOrder);
+                                                        return oi;
+                                                    })
+                                                    .toList();
+
+                                            return orderItemRepository.saveAll(orderItems)
+                                                    .collectList()
+                                                    .map(savedItems -> {
+                                                        savedOrder.setOrderItems(savedItems);
+                                                        return savedOrder;
+                                                    });
                                         });
                             });
-                });
+                })
+                .as(transactionalOperator::transactional);
     }
 
     private Mono<Order> enrichOrder(Order order) {

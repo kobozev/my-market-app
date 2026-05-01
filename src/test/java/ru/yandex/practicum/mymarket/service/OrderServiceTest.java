@@ -1,5 +1,6 @@
 package ru.yandex.practicum.mymarket.service;
 
+import org.springframework.transaction.reactive.TransactionalOperator;
 import ru.yandex.practicum.mymarket.dto.CartItemDto;
 import ru.yandex.practicum.mymarket.model.Item;
 import ru.yandex.practicum.mymarket.model.Order;
@@ -39,6 +40,9 @@ class OrderServiceTest {
 
     @InjectMocks
     private OrderServiceImpl orderService;
+
+    @Mock
+    private TransactionalOperator transactionalOperator;
 
     private Item testItem1;
     private Item testItem2;
@@ -93,6 +97,9 @@ class OrderServiceTest {
     void create_shouldCreateOrderWithItems() {
         Order savedOrder = new Order();
         savedOrder.setId(1L);
+
+        when(transactionalOperator.transactional(any(Mono.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         when(itemRepository.findAllById(anyIterable()))
                 .thenReturn(Flux.fromIterable(List.of(testItem1, testItem2)));
