@@ -31,7 +31,7 @@ class CartControllerTest {
 
     @Test
     void getCartItems_shouldReturnCartPage() {
-        Item item = Item.builder().id(1L).title("Item").price(BigDecimal.TEN).build();
+        Item item = Item.builder().id(1L).title("Item").price(BigDecimal.TEN).stockQuantity(10).build();
 
         when(cartService.getCartItems(any(WebSession.class)))
                 .thenReturn(Flux.just(new CartItemDto(item, 2)));

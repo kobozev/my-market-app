@@ -51,6 +51,7 @@ class ItemControllerTest {
                 .title("Test Item 1")
                 .description("Description 1")
                 .price(BigDecimal.valueOf(10.0))
+                .stockQuantity(10)
                 .build();
         testItem1.setCreatedAt(now);
         testItem1.setUpdatedAt(now);
@@ -60,6 +61,7 @@ class ItemControllerTest {
                 .title("Test Item 2")
                 .description("Description 2")
                 .price(BigDecimal.valueOf(20.0))
+                .stockQuantity(20)
                 .build();
         testItem2.setCreatedAt(now);
         testItem2.setUpdatedAt(now);

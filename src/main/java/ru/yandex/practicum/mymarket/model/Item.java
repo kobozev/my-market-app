@@ -15,6 +15,7 @@ public class Item {
     private String description;
     private String imgPath;
     private BigDecimal price;
+    private int stockQuantity;
 
     @Column
     private LocalDateTime createdAt;
@@ -108,9 +109,22 @@ public class Item {
             return this;
         }
 
+        public Builder stockQuantity(Integer stockQuantity) {
+            item.setStockQuantity(stockQuantity);
+            return this;
+        }
+
         public Item build() {
             return item;
         }
+    }
+
+    public Integer getStockQuantity() {
+        return stockQuantity;
+    }
+
+    public void setStockQuantity(Integer stockQuantity) {
+        this.stockQuantity = stockQuantity;
     }
 
     public static Builder builder() {

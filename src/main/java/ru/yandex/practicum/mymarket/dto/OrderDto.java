@@ -7,7 +7,7 @@ import java.util.List;
 
 public record OrderDto(
         long id,
-        List<ItemDto> items,
+        List<CartItemDto> items,
         BigDecimal totalSum
 ) {
     public static OrderDto from(Order order) {
@@ -15,13 +15,18 @@ public record OrderDto(
             return null;
         }
 
-        var orderItems = order.getOrderItems();
-        var totalSum = orderItems.stream()
-                .map(x -> x.getPrice().multiply(new BigDecimal(x.getQuantity())))
+        var items = order.getOrderItems().stream()
+                .map(oi -> CartItemDto.from(oi.getItem(), oi.getQuantity()))
+                .toList();
+
+        var totalSum = items.stream()
+                .map(CartItemDto::getSubtotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        var items = orderItems.stream()
-                .map(orderItem-> ItemDto.from(orderItem, orderItem.getQuantity())).toList();
-        return new OrderDto(order.getId() == null ? 0L : order.getId(), items, totalSum);
+        return new OrderDto(
+                order.getId() == null ? 0L : order.getId(),
+                items,
+                totalSum
+        );
     }
 }
