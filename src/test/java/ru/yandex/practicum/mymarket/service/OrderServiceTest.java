@@ -1,95 +1,135 @@
 package ru.yandex.practicum.mymarket.service;
 
-import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Primary;
-import org.springframework.test.context.ActiveProfiles;
-import ru.yandex.practicum.mymarket.model.Cart;
-import ru.yandex.practicum.mymarket.model.CartItem;
+import org.springframework.transaction.reactive.TransactionalOperator;
+import ru.yandex.practicum.mymarket.dto.CartItemDto;
 import ru.yandex.practicum.mymarket.model.Item;
 import ru.yandex.practicum.mymarket.model.Order;
+import ru.yandex.practicum.mymarket.model.OrderItem;
+import ru.yandex.practicum.mymarket.repository.ItemRepository;
+import ru.yandex.practicum.mymarket.repository.OrderItemRepository;
 import ru.yandex.practicum.mymarket.repository.OrderRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
+import ru.yandex.practicum.mymarket.service.impl.OrderServiceImpl;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
-@SpringBootTest(classes = {
-        OrderService.class,
-        OrderServiceTest.MockConfig.class
-})
-@ActiveProfiles("test")
+@ExtendWith(MockitoExtension.class)
 class OrderServiceTest {
 
-    @Autowired
-    private OrderService orderService;
-
-    @Autowired
+    @Mock
     private OrderRepository orderRepository;
 
-    @Autowired
-    private CartService cartService;
+    @Mock
+    private OrderItemRepository orderItemRepository;
 
-    @TestConfiguration
-    static class MockConfig {
+    @Mock
+    private ItemRepository itemRepository;
 
-        @Bean
-        @Primary
-        OrderRepository orderRepository() {
-            return Mockito.mock(OrderRepository.class);
-        }
+    @InjectMocks
+    private OrderServiceImpl orderService;
 
-        @Bean
-        @Primary
-        CartService cartService() {
-            return Mockito.mock(CartService.class);
-        }
+    @Mock
+    private TransactionalOperator transactionalOperator;
+
+    private Item testItem1;
+    private Item testItem2;
+    private List<CartItemDto> cartItemDtos;
+
+    @BeforeEach
+    void setUp() {
+        testItem1 = Item.builder().id(1L).title("Item 1").price(BigDecimal.TEN).build();
+        testItem2 = Item.builder().id(2L).title("Item 2").price(BigDecimal.valueOf(20)).build();
+
+        cartItemDtos = List.of(
+                new CartItemDto(testItem1, 2),
+                new CartItemDto(testItem2, 3)
+        );
     }
 
     @Test
-    void shouldCreateOrder() {
-        Item item = new Item();
-        item.setId(1L);
-        item.setPrice(100L);
-        item.setTitle("Item");
+    void getAll_shouldReturnAllOrders() {
+        Order o1 = new Order(); o1.setId(1L);
+        Order o2 = new Order(); o2.setId(2L);
 
-        CartItem ci = new CartItem();
-        ci.setItem(item);
-        ci.setCount(2);
+        when(orderRepository.findAll()).thenReturn(Flux.just(o1, o2));
+        when(orderItemRepository.findByOrderId(anyLong())).thenReturn(Flux.empty());
 
-        Cart cart = new Cart();
-        cart.setItems(List.of(ci));
-
-        Mockito.when(cartService.getOrCreate(1L)).thenReturn(cart);
-        Mockito.when(orderRepository.save(any()))
-                .thenAnswer(i -> i.getArgument(0));
-
-        Order order = orderService.createOrder(1L);
-
-        assertEquals(200L, order.getTotalSum());
-        assertEquals(1, order.getItems().size());
-
-        verify(cartService).clear(1L);
+        StepVerifier.create(orderService.getAll())
+                .expectNextCount(2)
+                .verifyComplete();
     }
 
     @Test
-    void shouldCreateEmptyOrder() {
-        Cart cart = new Cart();
-        cart.setItems(List.of());
+    void getById_shouldReturnEmpty_whenNotExists() {
+        when(orderRepository.findById(999L)).thenReturn(Mono.empty());
 
-        Mockito.when(cartService.getOrCreate(1L)).thenReturn(cart);
-        Mockito.when(orderRepository.save(any()))
-                .thenAnswer(i -> i.getArgument(0));
+        StepVerifier.create(orderService.getById(999L))
+                .verifyComplete();
+    }
 
-        Order order = orderService.createOrder(1L);
+    @Test
+    void getById_shouldReturnOrder() {
+        Order order = new Order();
+        order.setId(1L);
 
-        assertEquals(0, order.getTotalSum());
-        assertTrue(order.getItems().isEmpty());
+        when(orderRepository.findById(1L)).thenReturn(Mono.just(order));
+        when(orderItemRepository.findByOrderId(1L)).thenReturn(Flux.empty());
+
+        StepVerifier.create(orderService.getById(1L))
+                .assertNext(o -> assertEquals(1L, o.getId()))
+                .verifyComplete();
+    }
+
+    @Test
+    void create_shouldCreateOrderWithItems() {
+        Order savedOrder = new Order();
+        savedOrder.setId(1L);
+
+        when(transactionalOperator.transactional(any(Mono.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        when(itemRepository.findAllById(anyIterable()))
+                .thenReturn(Flux.fromIterable(List.of(testItem1, testItem2)));
+
+        when(orderRepository.save(any())).thenReturn(Mono.just(savedOrder));
+        when(orderItemRepository.saveAll(anyList()))
+                .thenReturn(Flux.fromIterable(List.of(
+                        new OrderItem(testItem1, 2),
+                        new OrderItem(testItem2, 3)
+                )));
+
+        StepVerifier.create(orderService.create(cartItemDtos))
+                .assertNext(order -> {
+                    assertEquals(1L, order.getId());
+                    assertEquals(2, order.getOrderItems().size());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void create_shouldRejectNull() {
+        StepVerifier.create(orderService.create(null))
+                .expectError(IllegalArgumentException.class)
+                .verify();
+    }
+
+    @Test
+    void create_shouldRejectEmpty() {
+        StepVerifier.create(orderService.create(List.of()))
+                .expectError(IllegalArgumentException.class)
+                .verify();
     }
 }

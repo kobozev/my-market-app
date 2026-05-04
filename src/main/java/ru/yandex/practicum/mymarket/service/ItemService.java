@@ -1,25 +1,17 @@
 package ru.yandex.practicum.mymarket.service;
 
-import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;
+import ru.yandex.practicum.mymarket.dto.Request.ItemsQueryRequestDto;
 import ru.yandex.practicum.mymarket.model.Item;
-import ru.yandex.practicum.mymarket.repository.ItemRepository;
+import org.springframework.data.domain.Page;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
-@Service
-@RequiredArgsConstructor
-public class ItemService {
+import java.util.Set;
 
-    private final ItemRepository repository;
+public interface ItemService {
+    Mono<Page<Item>> getAllItems(ItemsQueryRequestDto queryRequest);
 
-    public Page<Item> find(String search, Pageable pageable) {
-        if (search == null || search.isBlank()) {
-            return repository.findAll(pageable);
-        }
-        return repository
-                .findByTitleContainingIgnoreCaseOrDescriptionContainingIgnoreCase(
-                        search, search, pageable
-                );
-    }
+    Mono<Item> getById(Long id);
+
+    Flux<Item> getByIds(Set<Long> ids);
 }

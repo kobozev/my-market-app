@@ -1,26 +1,133 @@
 package ru.yandex.practicum.mymarket.model;
 
-import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
 
-@Entity
-@Table(name = "items")
-@Getter
-@Setter
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+@Table("items")
 public class Item {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @Column(nullable = false)
     private String title;
-
-    @Column(length = 1000)
     private String description;
-
     private String imgPath;
+    private BigDecimal price;
+    private int stockQuantity;
 
-    @Column(nullable = false)
-    private Long price;
+    @Column
+    private LocalDateTime createdAt;
+    @Column
+    private LocalDateTime updatedAt;
+
+    protected Item() {
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public String getImgPath() {
+        return imgPath;
+    }
+
+    public BigDecimal getPrice() {
+        return price;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public void setImgPath(String imgPath) {
+        this.imgPath = imgPath;
+    }
+
+    public void setPrice(BigDecimal price) {
+        this.price = price;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    public static class Builder {
+        private final Item item = new Item();
+
+        public Builder id(Long id) {
+            item.setId(id);
+            return this;
+        }
+
+        public Builder title(String title) {
+            item.setTitle(title);
+            return this;
+        }
+
+        public Builder description(String description) {
+            item.setDescription(description);
+            return this;
+        }
+
+        public Builder imgPath(String imgPath) {
+            item.setImgPath(imgPath);
+            return this;
+        }
+
+        public Builder price(BigDecimal price) {
+            item.setPrice(price);
+            return this;
+        }
+
+        public Builder stockQuantity(Integer stockQuantity) {
+            item.setStockQuantity(stockQuantity);
+            return this;
+        }
+
+        public Item build() {
+            return item;
+        }
+    }
+
+    public Integer getStockQuantity() {
+        return stockQuantity;
+    }
+
+    public void setStockQuantity(Integer stockQuantity) {
+        this.stockQuantity = stockQuantity;
+    }
+
+    public static Builder builder() {
+        return new Builder();
+    }
 }

@@ -1,8 +1,9 @@
 package ru.yandex.practicum.mymarket.dto;
 
 public record PagingDto(
-        int pageSize,
         int pageNumber,
+        int pageSize,
         boolean hasPrevious,
         boolean hasNext
-) {}
+) {
+}
