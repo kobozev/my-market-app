@@ -2,9 +2,9 @@ package ru.yandex.practicum.mymarket.controller;
 
 import jakarta.validation.constraints.Min;
 import org.springframework.web.bind.annotation.PostMapping;
-import ru.yandex.practicum.mymarket.dto.CartItemDto;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import ru.yandex.practicum.mymarket.dto.OrderDto;
-import ru.yandex.practicum.mymarket.service.CartService;
+import ru.yandex.practicum.mymarket.service.OrderProcessingService;
 import ru.yandex.practicum.mymarket.service.OrderService;
 import org.springframework.stereotype.Controller;
 import org.springframework.validation.annotation.Validated;
@@ -17,13 +17,12 @@ import reactor.core.publisher.Mono;
 @Controller
 @Validated
 public class OrderController {
-
     private final OrderService orderService;
-    private final CartService cartService;
+    private final OrderProcessingService orderProcessingService;
 
-    public OrderController(OrderService orderService, CartService cartService) {
+    public OrderController(OrderService orderService, OrderProcessingService orderProcessingService) {
         this.orderService = orderService;
-        this.cartService = cartService;
+        this.orderProcessingService = orderProcessingService;
     }
 
     @GetMapping("/orders")
@@ -52,20 +51,16 @@ public class OrderController {
 
     @PostMapping("/buy")
     public Mono<Rendering> buy(WebSession session) {
-
-        return cartService.getCartItems(session.getId())
-                .map(cartItem -> new CartItemDto(
-                        cartItem.getItem(),
-                        cartItem.getQuantity()
-                ))
-                .collectList()
-                .flatMap(orderService::create)
-                .flatMap(order ->
-                        cartService.clear(session.getId())
-                                .thenReturn(order)
-                )
-                .map(order -> Rendering.redirectTo(
-                                "/orders/" + order.getId() + "?newOrder=true")
-                        .build());
+        return orderProcessingService.checkout(session.getId())
+                .map(order -> Rendering.redirectTo("/orders/" + order.getId() + "?newOrder=true").build())
+                .onErrorResume(e -> {
+                    String message = (e instanceof WebClientResponseException ex &&
+                            ex.getStatusCode().is4xxClientError())
+                            ? "Оплата не прошла. Недостаточно средств на балансе."
+                            : "Произошла ошибка при оформлении заказа. Попробуйте позже.";
+                    return Mono.just(Rendering.view("checkout-error")
+                            .modelAttribute("errorMessage", message)
+                            .build());
+                });
     }
 }
