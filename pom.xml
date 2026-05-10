@@ -26,6 +26,7 @@
     <modules>
         <module>market-app</module>
         <module>payment-api</module>
+        <module>payment-service</module>
     </modules>
 
     <dependencyManagement>
