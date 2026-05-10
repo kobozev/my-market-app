@@ -31,7 +31,7 @@ public class ItemController {
                                     WebSession session) {
 
         return itemService.getAllItems(queryParams)
-                .zipWith(cartService.getCart(session))
+                .zipWith(cartService.getCart(session.getId()))
                 .map(tuple -> {
                     var page = tuple.getT1();
                     var cart = tuple.getT2();
@@ -67,7 +67,7 @@ public class ItemController {
 
         return itemService.getById(id)
                 .flatMap(item ->
-                        cartService.getCart(session)
+                        cartService.getCart(session.getId())
                                 .map(cart -> ItemDto.from(
                                         item,
                                         cart.getItemCountById(item.getId())

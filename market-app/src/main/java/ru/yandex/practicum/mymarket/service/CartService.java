@@ -1,24 +1,24 @@
 package ru.yandex.practicum.mymarket.service;
 
+import ru.yandex.practicum.mymarket.model.Cart;
 import ru.yandex.practicum.mymarket.constants.CartAction;
-import ru.yandex.practicum.mymarket.dto.CartItemDto;
-import ru.yandex.practicum.mymarket.dto.CartDto;
-import org.springframework.web.server.WebSession;
+import ru.yandex.practicum.mymarket.model.CartItem;
+
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 
 public interface CartService {
-    Mono<CartDto> getCart(WebSession session);
+    Mono<Cart> getCart(String sessionId);
 
-    Mono<Void> removeItem(WebSession session, long itemId);
+    Mono<Void> removeItem(String sessionId, Long itemId);
 
-    Mono<Void> updateItemCount(WebSession session, long itemId, CartAction action);
+    Mono<Void> updateItemCount(String sessionId, Long itemId, CartAction action);
 
-    Flux<CartItemDto> getCartItems(WebSession session);
+    Flux<CartItem> getCartItems(String sessionId);
 
-    Mono<BigDecimal> getCartTotal(WebSession session);
+    Mono<BigDecimal> getCartTotal(String sessionId);
 
-    Mono<Void> clear(WebSession session);
+    Mono<Void> clear(String sessionId);
 }

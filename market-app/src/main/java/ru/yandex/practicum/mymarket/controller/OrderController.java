@@ -2,6 +2,7 @@ package ru.yandex.practicum.mymarket.controller;
 
 import jakarta.validation.constraints.Min;
 import org.springframework.web.bind.annotation.PostMapping;
+import ru.yandex.practicum.mymarket.dto.CartItemDto;
 import ru.yandex.practicum.mymarket.dto.OrderDto;
 import ru.yandex.practicum.mymarket.service.CartService;
 import ru.yandex.practicum.mymarket.service.OrderService;
@@ -52,14 +53,19 @@ public class OrderController {
     @PostMapping("/buy")
     public Mono<Rendering> buy(WebSession session) {
 
-        return cartService.getCartItems(session)
+        return cartService.getCartItems(session.getId())
+                .map(cartItem -> new CartItemDto(
+                        cartItem.getItem(),
+                        cartItem.getQuantity()
+                ))
                 .collectList()
                 .flatMap(orderService::create)
                 .flatMap(order ->
-                        cartService.clear(session)
+                        cartService.clear(session.getId())
                                 .thenReturn(order)
                 )
-                .map(order -> Rendering.redirectTo("/orders/" + order.getId() + "?newOrder=true")
+                .map(order -> Rendering.redirectTo(
+                                "/orders/" + order.getId() + "?newOrder=true")
                         .build());
     }
 }

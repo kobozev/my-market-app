@@ -27,7 +27,7 @@ public class CartController {
     @PostMapping("/items")
     public Mono<Rendering> addOrRemoveItemInCart(@ModelAttribute @Valid CartActionRequestDto request,
                                                  WebSession session) {
-        return cartService.updateItemCount(session, request.id(), request.action())
+        return cartService.updateItemCount(session.getId(), request.id(), request.action())
                 .then(Mono.just(Rendering.redirectTo(
                         "/items?search=" + request.search() +
                                 "&sort=" + request.sort() +
@@ -41,18 +41,18 @@ public class CartController {
             @ModelAttribute @Valid CartActionRequestDto request,
             WebSession session
     ) {
-        return cartService.updateItemCount(session, request.id(), request.action())
+        return cartService.updateItemCount(session.getId(), request.id(), request.action())
                 .then(Mono.just(Rendering.redirectTo("/items/" + id).build()));
     }
 
     @GetMapping("/cart/items")
     public Mono<Rendering> getItems(WebSession session) {
-        Flux<ItemDto> itemsFlux = cartService.getCartItems(session)
-                .map(cartItem -> ItemDto.from(cartItem.item(), cartItem.quantity()));
+        Flux<ItemDto> itemsFlux = cartService.getCartItems(session.getId())
+                .map(cartItem -> ItemDto.from(cartItem.getItem(), cartItem.getQuantity()));
 
         return Mono.zip(
                 itemsFlux.collectList(),
-                cartService.getCartTotal(session)
+                cartService.getCartTotal(session.getId())
         ).map(tuple -> Rendering.view("cart")
                 .modelAttribute("items", tuple.getT1())
                 .modelAttribute("total", tuple.getT2())
@@ -62,13 +62,13 @@ public class CartController {
     @PostMapping("/cart/items")
     public Mono<Rendering> updateItems(@RequestParam Long id, @RequestParam CartAction action,
                                        Model model, WebSession session) {
-        Flux<ItemDto> itemsFlux = cartService.updateItemCount(session, id, action)
-                .thenMany(cartService.getCartItems(session))
-                .map(cartItem -> ItemDto.from(cartItem.item(), cartItem.quantity()));
+        Flux<ItemDto> itemsFlux = cartService.updateItemCount(session.getId(), id, action)
+                .thenMany(cartService.getCartItems(session.getId()))
+                .map(cartItem -> ItemDto.from(cartItem.getItem(), cartItem.getQuantity()));
 
         return Mono.zip(
                 itemsFlux.collectList(),
-                cartService.getCartTotal(session)
+                cartService.getCartTotal(session.getId())
         ).map(tuple -> Rendering.view("cart")
                 .modelAttribute("items", tuple.getT1())
                 .modelAttribute("total", tuple.getT2())
