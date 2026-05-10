@@ -1,10 +1,8 @@
 package ru.yandex.practicum.payment.repository;
 
-import ru.yandex.practicum.payment.model.Balance;
+import ru.yandex.practicum.payment.model.BalanceEntity;
 import org.springframework.data.repository.reactive.ReactiveCrudRepository;
 
-import java.util.UUID;
-
-public interface PaymentRepository extends ReactiveCrudRepository<Balance, UUID> {
+public interface PaymentRepository extends ReactiveCrudRepository<BalanceEntity, Long> {
 
 }

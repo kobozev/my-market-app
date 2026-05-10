@@ -1,0 +1,11 @@
+spring:
+  r2dbc:
+    url: r2dbc:tc:postgresql:///marketdb?TC_IMAGE_TAG=9.6.8
+    username: test
+    password: test
+  sql:
+    init:
+      mode: always
+logging:
+  level:
+    io.r2dbc.postgresql: DEBUG

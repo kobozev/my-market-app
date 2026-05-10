@@ -13,7 +13,7 @@
     <packaging>jar</packaging>
 
     <properties>
-        <springdoc-openapi-starter-webflux-ui>3.0.3</springdoc-openapi-starter-webflux-ui>
+        <springdoc-openapi-starter-webflux-ui>2.8.13</springdoc-openapi-starter-webflux-ui>
         <openapi-generator.version>7.19.0</openapi-generator.version>
         <jackson-databind-nullable.version>0.2.10</jackson-databind-nullable.version>
     </properties>

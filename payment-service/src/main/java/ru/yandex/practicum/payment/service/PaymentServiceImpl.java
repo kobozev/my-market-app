@@ -1,58 +1,65 @@
 package ru.yandex.practicum.payment.service;
 
-import org.springframework.stereotype.Service;
-import reactor.core.publisher.Mono;
+import lombok.RequiredArgsConstructor;
 import ru.yandex.practicum.payment.model.BalanceResponse;
 import ru.yandex.practicum.payment.model.PaymentRequest;
 import ru.yandex.practicum.payment.model.PaymentResponse;
-
-import java.util.concurrent.atomic.AtomicReference;
+import ru.yandex.practicum.payment.repository.PaymentRepository;
+import org.springframework.stereotype.Service;
+import reactor.core.publisher.Mono;
 
 @Service
+@RequiredArgsConstructor
 public class PaymentServiceImpl implements PaymentService {
 
-    private final AtomicReference<Double> balance =
-            new AtomicReference<>(0.0);
+    private final PaymentRepository paymentRepository;
 
     @Override
     public Mono<BalanceResponse> getBalance(Long userId) {
 
-        BalanceResponse response = new BalanceResponse();
-
-        response.setUserId(userId);
-        response.setBalance(balance.get());
-
-        return Mono.just(response);
+        return paymentRepository.findById(userId)
+                .map(balance -> new BalanceResponse()
+                        .userId(balance.getUserId())
+                        .balance(balance.getBalance()))
+                .defaultIfEmpty(
+                        new BalanceResponse()
+                                .userId(userId)
+                                .balance(0.0)
+                );
     }
 
     @Override
     public Mono<PaymentResponse> processPayment(PaymentRequest request) {
 
-        synchronized (this) {
+        return paymentRepository.findById(request.getUserId())
+                .flatMap(balance -> {
 
-            Double currentBalance = balance.get();
+                    double currentBalance = balance.getBalance();
+                    double paymentAmount = request.getAmount();
 
-            if (currentBalance < request.getAmount()) {
+                    if (currentBalance < paymentAmount) {
+                        return Mono.just(
+                                new PaymentResponse()
+                                        .success(false)
+                                        .newBalance(currentBalance)
+                        );
+                    }
 
-                PaymentResponse response = new PaymentResponse();
+                    double updatedBalance = currentBalance - paymentAmount;
 
-                response.setSuccess(false);
-                response.setNewBalance(currentBalance);
+                    balance.setBalance(updatedBalance);
 
-                return Mono.just(response);
-            }
-
-            Double newBalance =
-                    currentBalance - request.getAmount();
-
-            balance.set(newBalance);
-
-            PaymentResponse response = new PaymentResponse();
-
-            response.setSuccess(true);
-            response.setNewBalance(newBalance);
-
-            return Mono.just(response);
-        }
+                    return paymentRepository.save(balance)
+                            .map(saved -> new PaymentResponse()
+                                    .success(true)
+                                    .newBalance(saved.getBalance()));
+                })
+                .switchIfEmpty(
+                        Mono.just(
+                                new PaymentResponse()
+                                        .success(false)
+                                        .newBalance(0.0)
+                        )
+                );
     }
 }
