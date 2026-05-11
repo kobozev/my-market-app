@@ -1,46 +1,48 @@
-# Этап 1: Сборка зависимостей
-FROM maven:3.9.6-eclipse-temurin-21 AS dependencies
-
+FROM eclipse-temurin:21-alpine AS build
 WORKDIR /app
 
-# Копируем только pom.xml для кэширования зависимостей
+# Copy parent and modules POMs
 COPY pom.xml .
-RUN mvn dependency:go-offline -B
+COPY payment-api/pom.xml payment-api/
+COPY market-app/pom.xml market-app/
+COPY payment-service/pom.xml payment-service/
 
-# Этап 2: Сборка приложения
-FROM maven:3.9.6-eclipse-temurin-21 AS builder
+# Copy Maven wrapper
+COPY mvnw .
+COPY .mvn .mvn
 
-WORKDIR /app
+RUN chmod +x mvnw
 
-# Кэш Maven зависимостей
-COPY --from=dependencies /root/.m2 /root/.m2
+# Download dependencies
+RUN ./mvnw dependency:go-offline -pl market-app -am -B
 
-# Исходники
-COPY pom.xml .
-COPY src ./src
+# Copy sources
+COPY market-app/src market-app/src
+COPY payment-api/src payment-api/src
+COPY payment-service/src payment-service/src
 
-# Сборка приложения
-RUN mvn clean package -DskipTests
+# Build application
+RUN ./mvnw -pl market-app -am clean package -DskipTests
 
-# Этап 3: Runtime
+# Runtime
 FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
-# Без root пользователя
+# wget for healthcheck
+RUN apk add --no-cache wget
+
+# Non-root user
 RUN addgroup -S spring && adduser -S spring -G spring
 USER spring:spring
 
-# jar
-COPY --from=builder /app/target/*.jar app.jar
-
-# статические ресурсы
-COPY --from=builder /app/src/main/resources/static /app/static
+# Copy jar
+COPY --from=build /app/market-app/target/*.jar market-app.jar
 
 EXPOSE 8080
 
-# Health Check
+# Healthcheck
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD wget -qO- http://localhost:8080/actuator/health | grep '"status":"UP"' || exit 1
 
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-jar", "market-app.jar"]
