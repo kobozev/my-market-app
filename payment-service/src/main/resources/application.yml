@@ -1,6 +1,9 @@
+server:
+  port: 8081
+
 spring:
   application:
-    name: my-market-app
+    name: payment-service
 
   r2dbc:
     url: r2dbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:marketdb}
@@ -11,20 +14,8 @@ spring:
     init:
       mode: never
 
-  data:
-    redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
-
-  thymeleaf:
-    cache: false
-
-cache:
-  ttl: PT1M
-
-payment:
-  service:
-    url: ${PAYMENT_SERVICE_URL:http://localhost:8081/api/v1}
+  webflux:
+    base-path: /api/v1
 
 management:
   endpoints:
@@ -37,7 +28,3 @@ management:
       probes:
         enabled: true
       show-details: always
-
-logging:
-  level:
-    ru.yandex.practicum: DEBUG
