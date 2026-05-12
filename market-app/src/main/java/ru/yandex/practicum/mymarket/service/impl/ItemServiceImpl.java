@@ -4,6 +4,7 @@ import ru.yandex.practicum.mymarket.constants.SortType;
 import ru.yandex.practicum.mymarket.dto.Request.ItemsQueryRequestDto;
 import ru.yandex.practicum.mymarket.dto.cache.CachedItem;
 import ru.yandex.practicum.mymarket.dto.cache.CachedItemsPage;
+import ru.yandex.practicum.mymarket.exception.ItemNotFoundException;
 import ru.yandex.practicum.mymarket.model.Item;
 import ru.yandex.practicum.mymarket.repository.ItemRepository;
 
@@ -46,6 +47,8 @@ public class ItemServiceImpl implements ItemService {
         return cacheService.get(key, Item.class)
                 .switchIfEmpty(Mono.defer(() ->
                         itemRepository.findById(id)
+                                .switchIfEmpty(Mono.error(new ItemNotFoundException(
+                                        String.format("Item with id %d not found", id))))
                                 .flatMap(item -> cacheService.set(key, item)
                                         .thenReturn(item))
                 ));
