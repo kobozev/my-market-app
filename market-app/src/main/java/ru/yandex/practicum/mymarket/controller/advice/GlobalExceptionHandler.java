@@ -1,10 +1,13 @@
 package ru.yandex.practicum.mymarket.controller.advice;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.support.DefaultMessageSourceResolvable;
 import org.springframework.http.*;
 import org.springframework.validation.BindException;
+import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.bind.support.WebExchangeBindException;
 import org.springframework.web.server.MethodNotAllowedException;
 import org.springframework.web.server.ServerWebExchange;
 import ru.yandex.practicum.mymarket.dto.Response.ErrorResponseDto;
@@ -50,19 +53,33 @@ public class GlobalExceptionHandler {
     }
 
     // 400 (валидация)
-    @ExceptionHandler(BindException.class)
+    @ExceptionHandler({
+            BindException.class,
+            WebExchangeBindException.class
+    })
     public ResponseEntity<ErrorResponseDto> handleValidation(
-            BindException ex,
+            Exception ex,
             ServerWebExchange exchange) {
 
         log.warn("Validation error: {}", ex.getMessage());
 
-        String message = ex.getBindingResult()
-                .getAllErrors()
-                .stream()
-                .findFirst()
-                .map(e -> e.getDefaultMessage())
-                .orElse("Ошибка валидации");
+        BindingResult bindingResult = switch (ex) {
+            case BindException bindException ->
+                    bindException.getBindingResult();
+
+            case WebExchangeBindException webExchangeBindException ->
+                    webExchangeBindException.getBindingResult();
+
+            default -> null;
+        };
+
+        String message = bindingResult == null
+                ? "Ошибка валидации"
+                : bindingResult.getAllErrors()
+                  .stream()
+                  .findFirst()
+                  .map(DefaultMessageSourceResolvable::getDefaultMessage)
+                  .orElse("Ошибка валидации");
 
         return build(
                 exchange,
