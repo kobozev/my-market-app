@@ -1,14 +1,12 @@
-version: '3.9'
-
 services:
 
-  db:
+  market-db:
     image: postgres:16-alpine
-    container_name: my-market-db
+    container_name: market-db
     restart: unless-stopped
 
     environment:
-      POSTGRES_DB: mymarketdb
+      POSTGRES_DB: marketdb
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
 
@@ -16,32 +14,90 @@ services:
       - "5432:5432"
 
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - market-data:/var/lib/postgresql/data
 
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d mymarketdb"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d marketdb"]
       interval: 5s
       timeout: 5s
       retries: 10
 
-  app:
-    build: .
-    container_name: my-market-app
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+
+    ports:
+      - "6379:6379"
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: payment-service/Dockerfile
+
+    container_name: payment-service
     restart: unless-stopped
 
     depends_on:
-      db:
+      market-db:
         condition: service_healthy
+
+    environment:
+      DB_HOST: market-db
+      DB_PORT: 5432
+      DB_NAME: marketdb
+
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
+    ports:
+      - "8081:8081"
+
+  market-app:
+    build:
+      context: .
+      dockerfile: market-app/Dockerfile
+
+    container_name: market-app
+    restart: unless-stopped
+
+    depends_on:
+      market-db:
+        condition: service_healthy
+      payment-service:
+        condition: service_started
+      redis:
+        condition: service_started
+
+    environment:
+      DB_HOST: market-db
+      DB_PORT: 5432
+      DB_NAME: marketdb
+
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
+      PAYMENT_SERVICE_URL: http://payment-service:8081/api/v1
 
     ports:
       - "8080:8080"
 
-    environment:
-      SPRING_PROFILES_ACTIVE: docker
+  gw:
+    image: nginx:1.29.0-alpine-perl
+    container_name: gw
+    restart: unless-stopped
 
-      SPRING_R2DBC_URL: r2dbc:postgresql://db:5432/mymarketdb
-      SPRING_R2DBC_USERNAME: postgres
-      SPRING_R2DBC_PASSWORD: postgres
+    depends_on:
+      - market-app
+
+    ports:
+      - "80:80"
+
+    volumes:
+      - ./proxy/nginx-market-proxy.conf:/etc/nginx/conf.d/default.conf:ro
 
 volumes:
-  pgdata:
+  market-data:
