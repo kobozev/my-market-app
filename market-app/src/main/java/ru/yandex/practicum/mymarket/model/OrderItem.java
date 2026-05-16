@@ -1,5 +1,10 @@
 package ru.yandex.practicum.mymarket.model;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Transient;
 import org.springframework.data.relational.core.mapping.Column;
@@ -9,7 +14,13 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Table(name = "order_items")
+@Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class OrderItem {
+
     @Id
     private Long id;
 
@@ -26,14 +37,12 @@ public class OrderItem {
     private Item item;
 
     private int quantity;
+
     private BigDecimal price;
 
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
-
-    public OrderItem() {
-    }
 
     public OrderItem(Item item, int quantity) {
         this.item = item;
@@ -42,77 +51,13 @@ public class OrderItem {
         this.price = item.getPrice();
     }
 
-    public Long getId() {
-        return id;
-    }
-
-    public Item getItem() {
-        return item;
-    }
-
-    public Order getOrder() {
-        return order;
-    }
-
-    public int getQuantity() {
-        return quantity;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public LocalDateTime getUpdateAt() {
-        return updatedAt;
-    }
-
     public void setOrder(Order order) {
         this.order = order;
-        this.setOrderId(order.getId());
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public BigDecimal getPrice() {
-        return price;
-    }
-
-    public void setPrice(BigDecimal price) {
-        this.price = price;
+        this.orderId = order.getId();
     }
 
     public void setItem(Item item) {
         this.item = item;
-        this.setItemId(item.getId());
-    }
-
-    public void setQuantity(int quantity) {
-        this.quantity = quantity;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
-    }
-
-    public Long getItemId() {
-        return itemId;
-    }
-
-    public void setItemId(Long itemId) {
-        this.itemId = itemId;
-    }
-
-    public Long getOrderId() {
-        return orderId;
-    }
-
-    public void setOrderId(Long orderId) {
-        this.orderId = orderId;
+        this.itemId = item.getId();
     }
 }
