@@ -60,6 +60,8 @@
                             <generatorName>spring</generatorName>
                             <apiPackage>ru.yandex.practicum.payment.api</apiPackage>
                             <modelPackage>ru.yandex.practicum.payment.model</modelPackage>
+                            <generateApiTests>false</generateApiTests>
+                            <generateModelTests>false</generateModelTests>
                             <configOptions>
                                 <interfaceOnly>true</interfaceOnly>
                                 <skipDefaultInterface>true</skipDefaultInterface>
@@ -85,6 +87,8 @@
                             <apiPackage>ru.yandex.practicum.payment.client.api</apiPackage>
                             <modelPackage>ru.yandex.practicum.payment.client.model</modelPackage>
                             <invokerPackage>ru.yandex.practicum.payment.client</invokerPackage>
+                            <generateApiTests>false</generateApiTests>
+                            <generateModelTests>false</generateModelTests>
                             <configOptions>
                                 <library>webclient</library>
                                 <useJakartaEe>true</useJakartaEe>
