@@ -19,6 +19,23 @@ spring:
   thymeleaf:
     cache: false
 
+  security:
+    oauth2:
+      client:
+        provider:
+          keycloak:
+            issuer-uri: ${KEYCLOAK_URL:http://localhost:8082}/realms/market-realm
+
+        registration:
+          payment-client:
+            provider: keycloak
+            authorization-grant-type: client_credentials
+            client-id: payment-client
+            client-name: payment-client
+            client-secret: payment-client-secret
+            scope:
+              - payments
+
 cache:
   ttl: PT1M
 
@@ -38,6 +55,13 @@ management:
         enabled: true
       show-details: always
 
+server:
+  reactive:
+    session:
+      timeout: 30m
+
 logging:
   level:
     ru.yandex.practicum: DEBUG
+    org.springframework.security: INFO
+    org.springframework.security.oauth2: INFO
