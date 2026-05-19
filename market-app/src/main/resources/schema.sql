@@ -13,9 +13,19 @@ CREATE TABLE IF NOT EXISTS items
 CREATE INDEX IF NOT EXISTS idx_items_title_lower ON items (LOWER(title));
 CREATE INDEX IF NOT EXISTS idx_items_price ON items (price);
 
+CREATE TABLE IF NOT EXISTS users (
+    id              BIGSERIAL PRIMARY KEY,
+    username        VARCHAR(100) NOT NULL UNIQUE,
+    password        VARCHAR(255) NOT NULL,
+    enabled         BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS orders
 (
     id         BIGSERIAL PRIMARY KEY,
+    user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     status     VARCHAR(255) NOT NULL DEFAULT 'PENDING',
     created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
@@ -36,7 +46,7 @@ CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items (order_id);
 
 CREATE TABLE IF NOT EXISTS carts (
     id              BIGSERIAL PRIMARY KEY,
-    session_id      VARCHAR NOT NULL UNIQUE,
+    user_id         BIGINT NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -51,4 +61,4 @@ CREATE TABLE IF NOT EXISTS cart_items (
     UNIQUE(cart_id, item_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_cart_items_cart_id ON cart_items(cart_id)
+CREATE INDEX IF NOT EXISTS idx_cart_items_cart_id ON cart_items(cart_id
