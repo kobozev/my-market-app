@@ -33,11 +33,11 @@ public class OrderProcessingServiceImpl implements OrderProcessingService {
     }
 
     @Override
-    public Mono<Order> checkout(String sessionId) {
+    public Mono<Order> checkout(Long userId) {
 
         return Mono.zip(
-                        cartService.getCartItems(sessionId).collectList(),
-                        cartService.getCartTotal(sessionId)
+                        cartService.getCartItems(userId).collectList(),
+                        cartService.getCartTotal(userId)
                 )
                 .flatMap(tuple -> {
 
@@ -51,26 +51,23 @@ public class OrderProcessingServiceImpl implements OrderProcessingService {
                             ))
                             .toList();
 
-                    // Temporary user identification until authentication is implemented
-                    long userId = Integer.toUnsignedLong(sessionId.hashCode());
-
                     return paymentsApi.processPayment(
                                     new PaymentRequest()
                                             .userId(userId)
                                             .amount(total.doubleValue())
                             )
                             .flatMap(paymentResult ->
-                                    orderService.create(cartItemDtos)
+                                    orderService.create(cartItemDtos, userId)
                             )
                             .flatMap(order ->
-                                    cartService.clear(sessionId)
+                                    cartService.clear(userId)
                                             .thenReturn(order)
                             );
                 })
                 .doOnError(error ->
                         logger.error(
                                 "Checkout failed for session {}: {}",
-                                sessionId,
+                                userId,
                                 error.getMessage()
                         )
                 );
