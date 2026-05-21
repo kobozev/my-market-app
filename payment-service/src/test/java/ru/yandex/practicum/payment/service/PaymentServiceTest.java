@@ -12,9 +12,11 @@ import ru.yandex.practicum.payment.model.Balance;
 import ru.yandex.practicum.payment.model.PaymentRequest;
 import ru.yandex.practicum.payment.repository.PaymentRepository;
 
+import java.math.BigDecimal;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class PaymentServiceTest {
@@ -32,7 +34,7 @@ class PaymentServiceTest {
     @BeforeEach
     void setUp() {
         testUserId = 1L;
-        testBalance = new Balance(testUserId, 1000.00);
+        testBalance = new Balance(testUserId, BigDecimal.valueOf(1000.00));
     }
 
     @Test
@@ -46,7 +48,7 @@ class PaymentServiceTest {
                     assertEquals(testUserId, balance.getUserId());
 
                     assertEquals(
-                            1000.00,
+                            BigDecimal.valueOf(1000.00),
                             balance.getBalance()
                     );
                 })
@@ -64,7 +66,7 @@ class PaymentServiceTest {
 
         PaymentRequest request = new PaymentRequest()
                 .userId(testUserId)
-                .amount(100.00);
+                .amount(BigDecimal.valueOf(100.00));
 
         StepVerifier.create(paymentService.processPayment(request))
                 .assertNext(response -> {
@@ -72,7 +74,7 @@ class PaymentServiceTest {
                     assertTrue(response.getSuccess());
 
                     assertEquals(
-                            900.00,
+                            BigDecimal.valueOf(900.00),
                             response.getNewBalance()
                     );
                 })
@@ -86,7 +88,7 @@ class PaymentServiceTest {
 
         PaymentRequest request = new PaymentRequest()
                 .userId(testUserId)
-                .amount(2000.00);
+                .amount(BigDecimal.valueOf(2000.00));
 
         StepVerifier.create(paymentService.processPayment(request))
                 .assertNext(response -> {
@@ -94,7 +96,7 @@ class PaymentServiceTest {
                     assertFalse(response.getSuccess());
 
                     assertEquals(
-                            1000.00,
+                            BigDecimal.valueOf(1000.00),
                             response.getNewBalance()
                     );
                 })
@@ -111,7 +113,7 @@ class PaymentServiceTest {
 
         PaymentRequest request = new PaymentRequest()
                 .userId(testUserId)
-                .amount(1000.00);
+                .amount(BigDecimal.valueOf(1000.00));
 
         StepVerifier.create(paymentService.processPayment(request))
                 .assertNext(response -> {
@@ -119,7 +121,7 @@ class PaymentServiceTest {
                     assertTrue(response.getSuccess());
 
                     assertEquals(
-                            0.00,
+                            BigDecimal.valueOf(0.00),
                             response.getNewBalance()
                     );
                 })
@@ -136,12 +138,12 @@ class PaymentServiceTest {
 
         PaymentRequest request = new PaymentRequest()
                 .userId(testUserId)
-                .amount(300.00);
+                .amount(BigDecimal.valueOf(300.00));
 
         StepVerifier.create(paymentService.processPayment(request))
                 .expectNextMatches(response ->
                         Boolean.TRUE.equals(response.getSuccess())
-                                && Double.valueOf(700.00)
+                                && BigDecimal.valueOf(700.00)
                                 .equals(response.getNewBalance())
                 )
                 .verifyComplete();
@@ -149,10 +151,27 @@ class PaymentServiceTest {
         StepVerifier.create(paymentService.getBalance(testUserId))
                 .assertNext(balance ->
                         assertEquals(
-                                700.00,
+                                BigDecimal.valueOf(700.00),
                                 balance.getBalance()
                         )
                 )
                 .verifyComplete();
+    }
+
+    @Test
+    void getUserBalance_shouldReturnZeroBalance_whenUserNotFound() {
+
+        when(paymentRepository.findById(testUserId))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(paymentService.getBalance(testUserId))
+                .expectNextMatches(balance ->
+                        balance.getUserId().equals(testUserId)
+                                && BigDecimal.ZERO.compareTo(balance.getBalance()) == 0
+                )
+                .verifyComplete();
+
+        verify(paymentRepository).findById(testUserId);
+        verify(paymentRepository, never()).save(any());
     }
 }
