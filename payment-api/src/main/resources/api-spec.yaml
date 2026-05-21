@@ -169,7 +169,7 @@ components:
 
         balance:
           type: number
-          format: double
+          format: decimal
           example: 1000.00
 
     PaymentRequest:
@@ -186,7 +186,7 @@ components:
 
         amount:
           type: number
-          format: double
+          format: decimal
           example: 500.00
 
     PaymentResponse:
@@ -202,7 +202,7 @@ components:
 
         newBalance:
           type: number
-          format: double
+          format: decimal
           example: 400.00
 
     ErrorResponse:

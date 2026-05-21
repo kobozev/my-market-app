@@ -8,7 +8,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
-import ru.yandex.practicum.payment.model.BalanceEntity;
+import ru.yandex.practicum.payment.model.Balance;
 import ru.yandex.practicum.payment.model.PaymentRequest;
 import ru.yandex.practicum.payment.repository.PaymentRepository;
 
@@ -27,12 +27,12 @@ class PaymentServiceTest {
 
     private Long testUserId;
 
-    private BalanceEntity testBalance;
+    private Balance testBalance;
 
     @BeforeEach
     void setUp() {
         testUserId = 1L;
-        testBalance = new BalanceEntity(testUserId, 1000.00);
+        testBalance = new Balance(testUserId, 1000.00);
     }
 
     @Test
