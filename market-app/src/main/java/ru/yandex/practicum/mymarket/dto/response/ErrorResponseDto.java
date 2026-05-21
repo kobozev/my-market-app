@@ -1,4 +1,4 @@
-package ru.yandex.practicum.mymarket.dto.Response;
+package ru.yandex.practicum.mymarket.dto.response;
 
 import lombok.Builder;
 import lombok.Getter;

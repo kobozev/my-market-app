@@ -10,7 +10,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 import ru.yandex.practicum.mymarket.constants.SortType;
-import ru.yandex.practicum.mymarket.dto.Request.ItemsQueryRequestDto;
+import ru.yandex.practicum.mymarket.dto.request.ItemsQueryRequestDto;
 import ru.yandex.practicum.mymarket.dto.cache.CachedItem;
 import ru.yandex.practicum.mymarket.dto.cache.CachedItemsPage;
 import ru.yandex.practicum.mymarket.exception.ItemNotFoundException;

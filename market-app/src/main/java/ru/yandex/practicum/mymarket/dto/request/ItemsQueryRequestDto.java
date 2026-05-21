@@ -1,4 +1,4 @@
-package ru.yandex.practicum.mymarket.dto.Request;
+package ru.yandex.practicum.mymarket.dto.request;
 
 import ru.yandex.practicum.mymarket.constants.SortType;
 

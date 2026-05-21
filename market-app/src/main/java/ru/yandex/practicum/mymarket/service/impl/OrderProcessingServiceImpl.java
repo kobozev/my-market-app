@@ -54,7 +54,7 @@ public class OrderProcessingServiceImpl implements OrderProcessingService {
                     return paymentsApi.processPayment(
                                     new PaymentRequest()
                                             .userId(userId)
-                                            .amount(total.doubleValue())
+                                            .amount(total)
                             )
                             .flatMap(paymentResult ->
                                     orderService.create(cartItemDtos, userId)

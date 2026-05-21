@@ -11,7 +11,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
 import reactor.core.publisher.Mono;
-import ru.yandex.practicum.mymarket.dto.Request.ItemsQueryRequestDto;
+import ru.yandex.practicum.mymarket.dto.request.ItemsQueryRequestDto;
 import ru.yandex.practicum.mymarket.model.Cart;
 import ru.yandex.practicum.mymarket.model.CartItem;
 import ru.yandex.practicum.mymarket.model.Item;

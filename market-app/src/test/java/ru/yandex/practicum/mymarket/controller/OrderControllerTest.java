@@ -120,7 +120,7 @@ class OrderControllerTest {
                 .thenReturn(Mono.error(
                         WebClientResponseException.create(
                                 HttpStatus.BAD_REQUEST.value(),
-                                "Bad Request",
+                                "Bad request",
                                 null,
                                 null,
                                 null

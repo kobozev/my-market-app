@@ -369,7 +369,7 @@ class CartServiceTest {
 
         StepVerifier.create(cartService.getCartTotal(SESSION_ID))
                 .assertNext(total ->
-                        assertEquals(80.0, total.doubleValue(), 0.01)
+                        assertEquals(80.0, total, 0.01)
                 )
                 .verifyComplete();
     }

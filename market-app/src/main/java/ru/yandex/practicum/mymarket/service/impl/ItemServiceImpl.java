@@ -1,7 +1,7 @@
 package ru.yandex.practicum.mymarket.service.impl;
 
 import ru.yandex.practicum.mymarket.constants.SortType;
-import ru.yandex.practicum.mymarket.dto.Request.ItemsQueryRequestDto;
+import ru.yandex.practicum.mymarket.dto.request.ItemsQueryRequestDto;
 import ru.yandex.practicum.mymarket.dto.cache.CachedItem;
 import ru.yandex.practicum.mymarket.dto.cache.CachedItemsPage;
 import ru.yandex.practicum.mymarket.exception.ItemNotFoundException;

@@ -41,7 +41,7 @@ class ItemRepositoryTest {
         ).verifyComplete();
     }
 
-    private Item buildItem(String title, String desc, double price, LocalDateTime now) {
+    private Item buildItem(String title, String desc, BigDecimal price, LocalDateTime now) {
         Item item = Item.builder()
                 .title(title)
                 .description(desc)
