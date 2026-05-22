@@ -61,4 +61,4 @@ CREATE TABLE IF NOT EXISTS cart_items (
     UNIQUE(cart_id, item_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_cart_items_cart_id ON cart_items(cart_id
+CREATE INDEX IF NOT EXISTS idx_cart_items_cart_id ON cart_items(cart_id);
