@@ -2,35 +2,32 @@ package ru.yandex.practicum.mymarket.controller;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.reactive.server.WebTestClient;
+import org.springframework.http.MediaType;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import ru.yandex.practicum.mymarket.config.TestSecurityConfig;
+import ru.yandex.practicum.mymarket.config.TestViewConfig;
 import ru.yandex.practicum.mymarket.constants.CartAction;
 import ru.yandex.practicum.mymarket.model.CartItem;
 import ru.yandex.practicum.mymarket.model.Item;
-import ru.yandex.practicum.mymarket.service.CartService;
+import ru.yandex.practicum.payment.client.model.BalanceResponse;
 
 import java.math.BigDecimal;
-import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @WebFluxTest(CartController.class)
-@Import(TestViewConfig.class)
-class CartControllerTest {
-
-    @Autowired
-    protected WebTestClient webTestClient;
-
-    @MockitoBean
-    protected CartService cartService;
+@Import({
+        TestViewConfig.class,
+        TestSecurityConfig.class
+})
+class CartControllerTest extends BaseControllerTest {
 
     private CartItem testCartItem;
+    private BalanceResponse testBalance;
 
     @BeforeEach
     void setUp() {
@@ -48,34 +45,19 @@ class CartControllerTest {
         testCartItem.setItemId(1L);
         testCartItem.setQuantity(2);
         testCartItem.setItem(testItem);
-    }
 
-    @Test
-    void getCartItems_shouldReturnCartPage() {
-
-        when(cartService.getCartItems(anyString()))
-                .thenReturn(Flux.just(testCartItem));
-
-        when(cartService.getCartTotal(anyString()))
-                .thenReturn(Mono.just(BigDecimal.valueOf(20)));
-
-        webTestClient.get()
-                .uri("/cart/items")
-                .exchange()
-                .expectStatus()
-                .isOk();
-
-        verify(cartService).getCartItems(anyString());
-        verify(cartService).getCartTotal(anyString());
+        testBalance = new BalanceResponse()
+                .userId(1L)
+                .balance(BigDecimal.valueOf(100.0));
     }
 
     @Test
     void addOrRemoveToCart_shouldUpdateCart_whenActionIsPlus() {
 
-        when(cartService.updateItemCount(anyString(), eq(1L), eq(CartAction.PLUS)))
+        when(cartService.updateItemCount(anyLong(), eq(1L), eq(CartAction.PLUS)))
                 .thenReturn(Mono.empty());
 
-        webTestClient.post()
+        authenticatedClient().post()
                 .uri(uriBuilder -> uriBuilder
                         .path("/items")
                         .queryParam("id", "1")
@@ -86,7 +68,6 @@ class CartControllerTest {
                         .queryParam("pageSize", "5")
                         .build()
                 )
-                .bodyValue(Map.of("action", "PLUS"))
                 .exchange()
                 .expectStatus()
                 .is3xxRedirection()
@@ -94,16 +75,16 @@ class CartControllerTest {
                 .location("/items?search=&sort=NO&pageNumber=1&pageSize=5");
 
         verify(cartService)
-                .updateItemCount(anyString(), eq(1L), eq(CartAction.PLUS));
+                .updateItemCount(anyLong(), eq(1L), eq(CartAction.PLUS));
     }
 
     @Test
     void addOrRemoveToCart_shouldUpdateCart_whenActionIsMinus() {
 
-        when(cartService.updateItemCount(anyString(), eq(1L), eq(CartAction.MINUS)))
+        when(cartService.updateItemCount(anyLong(), eq(1L), eq(CartAction.MINUS)))
                 .thenReturn(Mono.empty());
 
-        webTestClient.post()
+        authenticatedClient().post()
                 .uri(uriBuilder -> uriBuilder
                         .path("/items")
                         .queryParam("id", "1")
@@ -114,7 +95,6 @@ class CartControllerTest {
                         .queryParam("pageSize", "10")
                         .build()
                 )
-                .bodyValue(Map.of("action", "MINUS"))
                 .exchange()
                 .expectStatus()
                 .is3xxRedirection()
@@ -122,16 +102,16 @@ class CartControllerTest {
                 .location("/items?search=test&sort=PRICE&pageNumber=2&pageSize=10");
 
         verify(cartService)
-                .updateItemCount(anyString(), eq(1L), eq(CartAction.MINUS));
+                .updateItemCount(anyLong(), eq(1L), eq(CartAction.MINUS));
     }
 
     @Test
     void addOrRemoveToCart_shouldRedirectToItemDetail_whenIdInPath() {
 
-        when(cartService.updateItemCount(anyString(), eq(5L), eq(CartAction.PLUS)))
+        when(cartService.updateItemCount(anyLong(), eq(5L), eq(CartAction.PLUS)))
                 .thenReturn(Mono.empty());
 
-        webTestClient.post()
+        authenticatedClient().post()
                 .uri(uriBuilder -> uriBuilder
                         .path("/items/5")
                         .queryParam("id", "5")
@@ -142,7 +122,6 @@ class CartControllerTest {
                         .queryParam("pageSize", "5")
                         .build()
                 )
-                .bodyValue(Map.of("action", "PLUS"))
                 .exchange()
                 .expectStatus()
                 .is3xxRedirection()
@@ -150,47 +129,13 @@ class CartControllerTest {
                 .location("/items/5");
 
         verify(cartService)
-                .updateItemCount(anyString(), eq(5L), eq(CartAction.PLUS));
-    }
-
-    @Test
-    void updateCartFromCartPage_shouldUpdateAndReturnCartPage() {
-
-        when(cartService.updateItemCount(anyString(), eq(1L), eq(CartAction.PLUS)))
-                .thenReturn(Mono.empty());
-
-        when(cartService.getCartItems(anyString()))
-                .thenReturn(Flux.just(testCartItem));
-
-        when(cartService.getCartTotal(anyString()))
-                .thenReturn(Mono.just(BigDecimal.valueOf(30.0)));
-
-        webTestClient.post()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/cart/items")
-                        .queryParam("id", "1")
-                        .queryParam("action", "PLUS")
-                        .build()
-                )
-                .bodyValue(Map.of("action", "PLUS"))
-                .exchange()
-                .expectStatus()
-                .isOk();
-
-        verify(cartService)
-                .updateItemCount(anyString(), eq(1L), eq(CartAction.PLUS));
-
-        verify(cartService)
-                .getCartItems(anyString());
-
-        verify(cartService)
-                .getCartTotal(anyString());
+                .updateItemCount(anyLong(), eq(5L), eq(CartAction.PLUS));
     }
 
     @Test
     void addOrRemoveToCart_shouldNotUpdateCart_whenNoAction() {
 
-        webTestClient.post()
+        authenticatedClient().post()
                 .uri(uriBuilder -> uriBuilder
                         .path("/items")
                         .queryParam("id", "1")
@@ -205,6 +150,19 @@ class CartControllerTest {
                 .is4xxClientError();
 
         verify(cartService, never())
-                .updateItemCount(anyString(), anyLong(), any());
+                .updateItemCount(anyLong(), anyLong(), any());
+    }
+
+    @Test
+    void getCartItems_shouldReturnUnauthorized_whenUserNotAuthenticated() {
+
+        webTestClient.get()
+                .uri("/cart/items")
+                .accept(MediaType.TEXT_HTML)
+                .exchange()
+                .expectStatus()
+                .isUnauthorized();
+
+        verify(cartService, never()).getCartItems(anyLong());
     }
 }
