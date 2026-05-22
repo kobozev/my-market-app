@@ -1,6 +1,6 @@
 # My Market App
 
-Реактивное multi-module веб-приложение интернет-магазина, разработанное на Spring Boot с использованием **Spring WebFlux**, **R2DBC**, **Redis** и интеграцией внутреннего платежного сервиса.
+Реактивное multi-module веб-приложение интернет-магазина, разработанное на Spring Boot с использованием **Spring WebFlux**, **R2DBC**, **Redis**, **Spring Security** и интеграцией внутреннего платежного сервиса.
 
 ## Описание
 
@@ -8,6 +8,7 @@ My Market App - учебный проект интернет-магазина, �
 
 Приложение позволяет:
 
+- Регистрироваться и входить в систему
 - Просматривать каталог товаров
 - Выполнять поиск и сортировку товаров
 - Управлять корзиной (добавление, изменение количества, удаление)
@@ -15,6 +16,17 @@ My Market App - учебный проект интернет-магазина, �
 - Выполнять обработку платежей через внутренний платежный сервис
 - Просматривать список заказов
 - Просматривать детали заказов
+
+Анонимные пользователи могут просматривать каталог товаров. 
+
+Корзина, заказы и оплата доступны только авторизованным пользователям.
+
+### Аутентификация и авторизация
+
+- **Пользователь → market-app**: Form-based login (username/password хранятся в PostgreSQL) с использованием Spring Security
+- **market-app → payment-service**: Service-to-service взаимодействие через OAuth2 Client Credentials Flow:
+  - market-app получает access token от Keycloak (Authorization Server)
+  - payment-service выступает как OAuth2 Resource Server и валидирует JWT.
 
 Проект реализован как multi-module приложение с разделением на:
 
@@ -33,6 +45,9 @@ my-market-app/
 ├── market-app/          # Основное приложение интернет-магазина
 ├── payment-service/     # Внутренний сервис обработки платежей
 ├── payment-api/         # OpenAPI контракты и generated API
+├── docker/              # Docker конфигурации
+│   ├── docker-compose.yml
+│   └── keycloak/        # Keycloak realm конфигурация
 └── proxy/               # Настройки Nginx Reverse proxy 
 
 ```
@@ -46,10 +61,13 @@ my-market-app/
 - Java 21
 - Spring Boot 3.5.12
 - Spring WebFlux
+- Spring Security
+- Spring OAuth2 Client - Client Credentials Flow
+- Spring OAuth2 Resource Server - JWT validation in payment-service
 - Project Reactor (Mono / Flux)
 - Spring Validation
 - Spring Boot Actuator
-- Thymeleaf (reactive rendering)
+- Thymeleaf (server-side rendering with WebFlux support)
 
 ---
 
@@ -57,7 +75,7 @@ my-market-app/
 
 - Spring Data R2DBC
 - R2DBC PostgreSQL Driver
-- Reactive Repositories
+- Reactive repositories (R2DBC-based data access)
 
 ---
 
@@ -75,6 +93,7 @@ my-market-app/
 - OpenAPI Generator
 - payment-api module
 - Reactive WebClient
+- Keycloak - OAuth2 сервер для service-to-service аутентификации
 
 ---
 
@@ -108,7 +127,7 @@ Controller (WebFlux)
         ↓ Mono / Flux
 Service Layer
         ↓ Mono / Flux
-Repository Layer (R2DBC / Redis)
+Repository Layer (R2DBC / Redis Reactive)
         ↓ Reactive Streams
 PostgreSQL / Redis
 ```
@@ -125,6 +144,7 @@ PostgreSQL / Redis
 
 #### Controllers
 
+- `AuthController` - регистрация и вход пользователей
 - `ItemController` - каталог товаров
 - `CartController` - корзина
 - `OrderController` - оформление и просмотр заказов
@@ -133,6 +153,7 @@ PostgreSQL / Redis
 
 #### Services
 
+- `UserService` - регистрация, аутентификация, программный логин после регистрации
 - `ItemService` - получение каталога товаров, поиск, сортировка и загрузка товаров по идентификаторам
 - `CartService` - управление корзиной, изменением количества товаров, очисткой корзины и расчетом общей стоимости
 - `OrderService` - создание заказов и получение информации о заказах
@@ -148,6 +169,7 @@ PostgreSQL / Redis
 
 #### Repositories
 
+- `UserRepository` - реактивный доступ к данным пользователей
 - `ItemRepository` - реактивный доступ к данным товаров и операциям каталога
 - `CartRepository` - работа с корзинами пользователей, сохранёнными в Redis
 - `CartItemRepository` - управление позициями корзины и количеством товаров
@@ -159,6 +181,7 @@ PostgreSQL / Redis
 ## payment-service
 
 Внутренний реактивный сервис обработки платежей.
+Защищён JWT авторизацией — принимает запросы только с валидным OAuth2 токеном и ролью `payment.balance.manage`.
 
 ### Основные компоненты
 
@@ -220,7 +243,7 @@ PostgreSQL / Redis
 
 Для заказов используются:
 
-- R2DBC transactions
+- R2DBC Transactional Operator
 - rollback при ошибках оплаты или сохранения заказа
 
 ---
