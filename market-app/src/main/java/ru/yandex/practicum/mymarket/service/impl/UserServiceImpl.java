@@ -83,7 +83,7 @@ public class UserServiceImpl implements UserService {
                 .enabled(true)
                 .build();
 
-        return userRepository.save(user)
+        Mono<User> saveUserTransaction = userRepository.save(user)
 
                 .onErrorMap(
                         DataIntegrityViolationException.class,
@@ -92,33 +92,37 @@ public class UserServiceImpl implements UserService {
                         )
                 )
 
+                .as(transactionalOperator::transactional);
+
+        return saveUserTransaction
+
                 .flatMap(saved ->
                         paymentsApi.createBalance(
                                         new CreateBalanceRequest()
                                                 .userId(saved.getId())
                                 )
+
                                 .thenReturn(saved)
-                )
 
-                .onErrorMap(
-                        e -> !(e instanceof IllegalArgumentException),
-                        e -> {
+                                .onErrorResume(ex -> {
 
-                            log.error(
-                                    "Balance creation failed for user {}",
-                                    user.getUsername(),
-                                    e
-                            );
+                                    log.error(
+                                            "Balance creation failed for user {}",
+                                            saved.getUsername(),
+                                            ex
+                                    );
 
-                            return new RuntimeException(
-                                    "Ошибка регистрации: " +
-                                            "не удалось создать аккаунт. " +
-                                            "Попробуйте позже."
-                            );
-                        }
-                )
+                                    return userRepository.deleteById(saved.getId())
 
-                .as(transactionalOperator::transactional);
+                                            .then(Mono.error(
+                                                    new RuntimeException(
+                                                            "Ошибка регистрации: " +
+                                                                    "не удалось создать аккаунт. " +
+                                                                    "Попробуйте позже."
+                                                    )
+                                            ));
+                                })
+                );
     }
 
     @Override
