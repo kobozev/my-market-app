@@ -39,6 +39,8 @@ services:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: password
       KC_HEALTH_ENABLED: "true"
+      PAYMENT_SERVICE_SECRET: payment-service-secret
+      PAYMENT_CLIENT_SECRET: payment-client-secret
 
     volumes:
       - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
