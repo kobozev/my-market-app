@@ -91,28 +91,7 @@ public class CartController {
                         )
                 );
 
-        return Mono.zip(
-                        itemsFlux.collectList(),
-                        cartService.getCartTotal(userId),
-                        paymentsApi.getBalance(userId)
-                                .doOnNext(balance ->
-                                        log.debug("Balance loaded for user {} from Get method", userId)
-                                )
-                                .doOnError(error ->
-                                        log.error(
-                                                "Error getting balance for user {}",
-                                                userId,
-                                                error
-                                        )
-                                )
-                )
-                .map(tuple ->
-                        buildCartRendering(
-                                tuple.getT1(),
-                                tuple.getT2(),
-                                tuple.getT3().getBalance()
-                        )
-                );
+        return buildCartPage(userId, itemsFlux);
     }
 
     @PostMapping("/cart/items")
@@ -136,28 +115,7 @@ public class CartController {
                         )
                 );
 
-        return Mono.zip(
-                        itemsFlux.collectList(),
-                        cartService.getCartTotal(userId),
-                        paymentsApi.getBalance(userId)
-                                .doOnNext(balance ->
-                                        log.debug("Balance loaded for user {} from Post method", userId)
-                                )
-                                .doOnError(error ->
-                                        log.error(
-                                                "Error getting balance for user {}",
-                                                userId,
-                                                error
-                                        )
-                                )
-                )
-                .map(tuple ->
-                        buildCartRendering(
-                                tuple.getT1(),
-                                tuple.getT2(),
-                                tuple.getT3().getBalance()
-                        )
-                );
+        return buildCartPage(userId, itemsFlux);
     }
 
     private Rendering buildCartRendering(
@@ -180,5 +138,37 @@ public class CartController {
                 .modelAttribute("canBuy", canBuy)
                 .modelAttribute("insufficientFunds", insufficientFunds)
                 .build();
+    }
+
+    private Mono<Rendering> buildCartPage(
+            Long userId,
+            Flux<ItemDto> itemsFlux
+    ) {
+
+        return Mono.zip(
+                        itemsFlux.collectList(),
+                        cartService.getCartTotal(userId),
+                        paymentsApi.getBalance(userId)
+                                .doOnNext(balance ->
+                                        log.debug(
+                                                "Balance loaded for user {}",
+                                                userId
+                                        )
+                                )
+                                .doOnError(error ->
+                                        log.error(
+                                                "Error getting balance for user {}",
+                                                userId,
+                                                error
+                                        )
+                                )
+                )
+                .map(tuple ->
+                        buildCartRendering(
+                                tuple.getT1(),
+                                tuple.getT2(),
+                                tuple.getT3().getBalance()
+                        )
+                );
     }
 }
