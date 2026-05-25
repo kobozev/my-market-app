@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 
 <head>
     <meta charset="utf-8">
@@ -16,10 +17,17 @@
             <div class="col">
                 <div class="hstack gap-3">
                     <h2>
-                        <span class="badge text-bg-success">Витрина магазина</span>
+                        <a href="/items" class="text-decoration-none"><span class="badge text-bg-success">Витрина магазина</span></a>
                     </h2>
-                    <a href="/orders" class="btn btn-secondary ms-auto bi bi-file-earmark-text"> Заказы</a>
-                    <a href="/cart/items" class="btn btn-secondary bi bi-cart4"> Корзина</a>
+                    <a th:if="${principal == null}" href="/login" class="btn btn-outline-primary ms-auto">Войти</a>
+                    <a th:if="${principal == null}" href="/register" class="btn btn-outline-secondary">Регистрация</a>
+                    <a th:if="${principal != null}" href="/orders" class="btn btn-secondary ms-auto bi bi-file-earmark-text"> Заказы</a>
+                    <a th:if="${principal != null}" href="/cart/items" class="btn btn-secondary bi bi-cart4"> Корзина</a>
+                    <span th:if="${principal != null}" class="badge text-bg-secondary" th:text="${principal?.username}"></span>
+                    <form th:if="${principal != null}" th:action="@{/logout}" method="post" class="d-inline m-0">
+                        <input type="hidden" th:name="${csrfToken?.parameterName}" th:value="${csrfToken?.token}">
+                        <button type="submit" class="btn btn-outline-secondary btn-sm">Выйти</button>
+                    </form>
                 </div>
             </div>
         </div>
@@ -50,9 +58,9 @@
                 </div>
             </div>
         </div>
-        <div class="row p-2" th:each="itemsRow : ${items}">
-            <div class="col" th:each="item : ${itemsRow}">
-                <div class="card" th:if="${item.id() != -1}">
+        <div class="row row-cols-1 row-cols-md-3 g-4 p-2">
+            <div class="col" th:each="item : ${items}">
+                <div class="card h-100">
                     <a th:href="${'/items/'+item.id()}">
                         <img th:src="${'/'+item.imgPath()}" class="card-img-top" alt="Нет изображения">
                     </a>
@@ -62,7 +70,8 @@
                             <span class="badge text-bg-success justify-content-end" th:text="${item.price()}+' руб.'"></span>
                         </h5>
                         <p class="card-text" th:text="${item.description()}"></p>
-                        <form method="post" th:action="@{/items}">
+                        <form th:if="${principal != null}" method="post" th:action="@{/items}">
+                            <input type="hidden" th:name="${csrfToken?.parameterName}" th:value="${csrfToken?.token}">
                             <div class="hstack gap-3">
                                 <input type="hidden" name="id" th:value="${item.id()}">
                                 <input type="hidden" name="search" th:value="${search}">
@@ -77,7 +86,6 @@
                         </form>
                     </div>
                 </div>
-                <div th:unless="${item.id() != -1}">&nbsp;</div>
             </div>
         </div>
         <div class="row p-2">

@@ -1,0 +1,52 @@
+{
+  "realm": "market-realm",
+  "enabled": true,
+  "sslRequired": "none",
+  "clientScopes": [
+    {
+      "name": "payments",
+      "protocol": "openid-connect"
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "payment-service",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${PAYMENT_SERVICE_SECRET}",
+      "serviceAccountsEnabled": false,
+      "publicClient": false,
+      "directAccessGrantsEnabled": false,
+      "standardFlowEnabled": false,
+      "protocol": "openid-connect",
+      "roles": [
+        {
+          "name": "payment.balance.manage",
+          "description": "Allows payment balance management"
+        }
+      ]
+    },
+    {
+      "clientId": "payment-client",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${PAYMENT_CLIENT_SECRET}",
+      "serviceAccountsEnabled": true,
+      "publicClient": false,
+      "directAccessGrantsEnabled": false,
+      "standardFlowEnabled": false,
+      "protocol": "openid-connect",
+      "defaultClientScopes": [
+        "payments"
+      ],
+      "scopeMappings": [
+        {
+          "client": "payment-service",
+          "roles": [
+            "payment.balance.manage"
+          ]
+        }
+      ]
+    }
+  ]
+}

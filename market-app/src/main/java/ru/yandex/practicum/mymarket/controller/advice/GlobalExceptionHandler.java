@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.bind.support.WebExchangeBindException;
 import org.springframework.web.server.MethodNotAllowedException;
 import org.springframework.web.server.ServerWebExchange;
-import ru.yandex.practicum.mymarket.dto.Response.ErrorResponseDto;
+import ru.yandex.practicum.mymarket.dto.response.ErrorResponseDto;
 import ru.yandex.practicum.mymarket.exception.ItemNotFoundException;
 import ru.yandex.practicum.mymarket.exception.OrderNotFoundException;
 

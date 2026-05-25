@@ -8,9 +8,9 @@ import reactor.core.publisher.Mono;
 import java.util.List;
 
 public interface OrderService {
-    Flux<Order> getAll();
+    Flux<Order> getAll(Long userId);
 
-    Mono<Order> getById(long id);
+    Mono<Order> getById(long id, Long userId);
 
-    Mono<Order> create(List<CartItemDto> cartItems);
+    Mono<Order> create(List<CartItemDto> cartItems, Long userId);
 }

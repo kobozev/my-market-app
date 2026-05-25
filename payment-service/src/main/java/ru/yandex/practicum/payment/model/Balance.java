@@ -7,14 +7,16 @@ import lombok.Setter;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Table;
 
+import java.math.BigDecimal;
+
 @Table("balance")
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter
 @Setter
-public class BalanceEntity {
+public class Balance {
     @Id
     private Long userId;
 
-    private Double balance;
+    private BigDecimal balance;
 }

@@ -9,9 +9,12 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import reactor.test.StepVerifier;
 import ru.yandex.practicum.mymarket.config.TestcontainersConfig;
 import ru.yandex.practicum.mymarket.model.Order;
+import ru.yandex.practicum.mymarket.model.User;
 
 import java.time.LocalDateTime;
 import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 @DataR2dbcTest
 @Testcontainers
@@ -21,94 +24,140 @@ class OrderRepositoryTest {
     @Autowired
     private OrderRepository orderRepository;
 
-    private Order order1;
-    private Order order2;
-    private Order order3;
+    @Autowired
+    private UserRepository userRepository;
+
+    private Long testUserId;
 
     @BeforeEach
     void setUp() {
-        var now = LocalDateTime.now();
-
-        order1 = buildOrder(now);
-        order2 = buildOrder(now);
-        order3 = buildOrder(now);
 
         StepVerifier.create(
                 orderRepository.deleteAll()
-                        .thenMany(orderRepository.saveAll(List.of(order1, order2, order3)))
+                        .then(userRepository.deleteAll())
+        ).verifyComplete();
+
+        User user = new User();
+        user.setUsername("testuser");
+        user.setPassword("password");
+        user.setEnabled(true);
+
+        testUserId = userRepository.save(user)
+                .map(User::getId)
+                .block();
+
+        var now = LocalDateTime.now();
+
+        Order order1 = buildOrder(now);
+        Order order2 = buildOrder(now);
+        Order order3 = buildOrder(now);
+
+        StepVerifier.create(
+                orderRepository.saveAll(List.of(order1, order2, order3))
                         .then()
         ).verifyComplete();
     }
 
     private Order buildOrder(LocalDateTime now) {
+
         Order order = new Order();
+
+        order.setUserId(testUserId);
+
         order.setCreatedAt(now);
         order.setUpdatedAt(now);
+
         return order;
     }
 
     @Test
     void save_shouldPersistOrder() {
+
         Order newOrder = buildOrder(LocalDateTime.now());
 
         StepVerifier.create(orderRepository.save(newOrder))
-                .expectNextMatches(saved ->
-                        saved.getId() != null &&
-                                saved.getCreatedAt() != null)
+                .assertNext(saved -> {
+                    assertNotNull(saved.getId());
+                    assertNotNull(saved.getCreatedAt());
+                    assertEquals(testUserId, saved.getUserId());
+                })
                 .verifyComplete();
     }
 
     @Test
     void findById_shouldReturnOrder_whenExists() {
+
         StepVerifier.create(
                         orderRepository.findAll()
                                 .next()
-                                .flatMap(order -> orderRepository.findById(order.getId()))
+                                .flatMap(order ->
+                                        orderRepository.findById(order.getId()))
                 )
-                .expectNextMatches(found -> found.getId() != null)
+                .assertNext(found -> {
+                    assertNotNull(found.getId());
+                    assertEquals(testUserId, found.getUserId());
+                })
                 .verifyComplete();
     }
 
     @Test
     void findById_shouldReturnEmpty_whenNotExists() {
+
         StepVerifier.create(orderRepository.findById(999L))
                 .verifyComplete();
     }
 
     @Test
     void findAll_shouldReturnAllOrders() {
-        StepVerifier.create(orderRepository.findAll())
-                .expectNextCount(3)
+
+        StepVerifier.create(orderRepository.findAll().collectList())
+                .assertNext(orders -> assertEquals(3, orders.size()))
+                .verifyComplete();
+    }
+
+    @Test
+    void findAllByUserId_shouldReturnUserOrders() {
+
+        StepVerifier.create(
+                        orderRepository.findAllByUserId(testUserId)
+                                .collectList()
+                )
+                .assertNext(orders -> assertEquals(3, orders.size()))
                 .verifyComplete();
     }
 
     @Test
     void count_shouldReturnCorrectCount() {
+
         StepVerifier.create(orderRepository.count())
-                .expectNext(3L)
+                .assertNext(count -> assertEquals(3L, count))
                 .verifyComplete();
     }
 
     @Test
     void existsById_shouldReturnTrue_whenExists() {
+
         StepVerifier.create(
                         orderRepository.findAll()
                                 .next()
-                                .flatMap(order -> orderRepository.existsById(order.getId()))
+                                .flatMap(order ->
+                                        orderRepository.existsById(order.getId()))
                 )
-                .expectNext(true)
+                .assertNext(exists -> assertEquals(true, exists))
                 .verifyComplete();
     }
 
     @Test
     void existsById_shouldReturnFalse_whenNotExists() {
+
         StepVerifier.create(orderRepository.existsById(999L))
-                .expectNext(false)
+                .assertNext(exists -> assertEquals(false, exists))
                 .verifyComplete();
     }
 
     @Test
     void deleteById_shouldRemoveOrder() {
+
         StepVerifier.create(
                         orderRepository.findAll()
                                 .next()
@@ -117,17 +166,18 @@ class OrderRepositoryTest {
                                                 .then(orderRepository.existsById(order.getId()))
                                 )
                 )
-                .expectNext(false)
+                .assertNext(exists -> assertEquals(false, exists))
                 .verifyComplete();
     }
 
     @Test
     void deleteAll_shouldRemoveAllOrders() {
+
         StepVerifier.create(
                         orderRepository.deleteAll()
                                 .then(orderRepository.count())
                 )
-                .expectNext(0L)
+                .assertNext(count -> assertEquals(0L, count))
                 .verifyComplete();
     }
 }

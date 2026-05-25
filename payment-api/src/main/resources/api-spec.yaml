@@ -2,14 +2,53 @@ openapi: 3.0.0
 
 info:
   title: Payment Service API
-  description: Service for managing account balance and processing payments
+  description: Service for managing account balances and processing payments
   version: 1.0.0
 
 servers:
   - url: http://localhost:8081/api/v1
     description: Local development server
 
+security:
+  - bearerAuth: []
+
 paths:
+
+  /payments/balance:
+    post:
+      operationId: createBalance
+      summary: Create payment account for user
+
+      tags:
+        - Payments
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBalanceRequest'
+
+      responses:
+        '201':
+          description: Balance created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BalanceResponse'
+
+        '401':
+          description: Unauthorized
+
+        '403':
+          description: Forbidden
+
+        '409':
+          description: Balance already exists for this user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /payments/balance/{userId}:
     get:
@@ -35,6 +74,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BalanceResponse'
+
+        '401':
+          description: Unauthorized
+
+        '403':
+          description: Forbidden
+
+        '404':
+          description: Balance not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /payments/process:
     post:
@@ -66,6 +118,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+        '401':
+          description: Unauthorized
+
+        '403':
+          description: Forbidden
+
         '503':
           description: Payment service unavailable
           content:
@@ -75,10 +133,31 @@ paths:
 
 components:
 
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   schemas:
+
+    CreateBalanceRequest:
+      type: object
+
+      required:
+        - userId
+
+      properties:
+        userId:
+          type: integer
+          format: int64
+
+      example:
+        userId: 1
 
     BalanceResponse:
       type: object
+
       required:
         - userId
         - balance
@@ -90,11 +169,12 @@ components:
 
         balance:
           type: number
-          format: double
+          format: decimal
           example: 1000.00
 
     PaymentRequest:
       type: object
+
       required:
         - userId
         - amount
@@ -106,11 +186,12 @@ components:
 
         amount:
           type: number
-          format: double
+          format: decimal
           example: 500.00
 
     PaymentResponse:
       type: object
+
       required:
         - success
 
@@ -121,20 +202,16 @@ components:
 
         newBalance:
           type: number
-          format: double
+          format: decimal
           example: 400.00
 
     ErrorResponse:
       type: object
+
       required:
-        - success
         - message
 
       properties:
-        success:
-          type: boolean
-          example: false
-
         message:
           type: string
           example: Not enough balance to complete payment

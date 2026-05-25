@@ -1,6 +1,6 @@
 package ru.yandex.practicum.mymarket.service;
 
-import ru.yandex.practicum.mymarket.dto.Request.ItemsQueryRequestDto;
+import ru.yandex.practicum.mymarket.dto.request.ItemsQueryRequestDto;
 import ru.yandex.practicum.mymarket.model.Item;
 import org.springframework.data.domain.Page;
 import reactor.core.publisher.Flux;

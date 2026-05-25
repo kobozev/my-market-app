@@ -1,5 +1,6 @@
 package ru.yandex.practicum.mymarket.service;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,9 +11,11 @@ import reactor.test.StepVerifier;
 import ru.yandex.practicum.mymarket.config.TestcontainersConfig;
 import ru.yandex.practicum.mymarket.dto.CartItemDto;
 import ru.yandex.practicum.mymarket.model.Item;
+import ru.yandex.practicum.mymarket.model.User;
 import ru.yandex.practicum.mymarket.repository.ItemRepository;
 import ru.yandex.practicum.mymarket.repository.OrderItemRepository;
 import ru.yandex.practicum.mymarket.repository.OrderRepository;
+import ru.yandex.practicum.mymarket.repository.UserRepository;
 import ru.yandex.practicum.mymarket.service.impl.OrderServiceImpl;
 
 import java.math.BigDecimal;
@@ -35,7 +38,12 @@ class OrderServiceTransactionalTest {
     @Autowired
     private OrderItemRepository orderItemRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
     private Item testItem;
+
+    private Long userId;
 
     @BeforeEach
     void setUp() {
@@ -43,7 +51,18 @@ class OrderServiceTransactionalTest {
                 orderItemRepository.deleteAll()
                         .then(orderRepository.deleteAll())
                         .then(itemRepository.deleteAll())
+                        .then(userRepository.deleteAll())
         ).verifyComplete();
+
+        User testUser = User.builder()
+                .username("testuser")
+                .password("password")
+                .enabled(true)
+                .build();
+
+        testUser = userRepository.save(testUser).block();
+        Assertions.assertNotNull(testUser);
+        userId = testUser.getId();
 
         testItem = Item.builder()
                 .title("Test item")
@@ -61,9 +80,10 @@ class OrderServiceTransactionalTest {
                 new CartItemDto(testItem, 3)
         );
 
-        StepVerifier.create(orderService.create(cartItems))
+        StepVerifier.create(orderService.create(cartItems, userId))
                 .expectNextMatches(order ->
                         order.getId() != null &&
+                                order.getUserId().equals(userId) &&
                                 order.getOrderItems().size() == 1
                 )
                 .verifyComplete();
@@ -90,7 +110,7 @@ class OrderServiceTransactionalTest {
                 new CartItemDto(fakeItem, 1)
         );
 
-        StepVerifier.create(orderService.create(cartItems))
+        StepVerifier.create(orderService.create(cartItems, userId))
                 .expectError()
                 .verify();
 

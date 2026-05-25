@@ -1,22 +1,19 @@
 package ru.yandex.practicum.mymarket.controller;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.reactive.server.WebTestClient;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
 import reactor.core.publisher.Mono;
-import ru.yandex.practicum.mymarket.dto.Request.ItemsQueryRequestDto;
+import ru.yandex.practicum.mymarket.config.TestSecurityConfig;
+import ru.yandex.practicum.mymarket.config.TestViewConfig;
+import ru.yandex.practicum.mymarket.dto.request.ItemsQueryRequestDto;
 import ru.yandex.practicum.mymarket.model.Cart;
 import ru.yandex.practicum.mymarket.model.CartItem;
 import ru.yandex.practicum.mymarket.model.Item;
-import ru.yandex.practicum.mymarket.service.CartService;
-import ru.yandex.practicum.mymarket.service.ItemService;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -24,22 +21,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.*;
 
 @WebFluxTest(ItemController.class)
-@Import(TestViewConfig.class)
-class ItemControllerTest {
-
-    @Autowired
-    protected WebTestClient webTestClient;
-
-    @MockitoBean
-    protected CartService cartService;
-
-    @MockitoBean
-    protected ItemService itemService;
+@Import({
+        TestViewConfig.class,
+        TestSecurityConfig.class
+})
+class ItemControllerTest extends BaseControllerTest {
 
     private Item testItem1;
     private Item testItem2;
@@ -71,12 +61,12 @@ class ItemControllerTest {
 
         testCart = new Cart();
         testCart.setId(1L);
-        testCart.setSessionId("test-session");
+        testCart.setUserId(1L);
         testCart.setItems(new ArrayList<>());
     }
 
     @Test
-    void getItems_shouldDisplayItemsPage() {
+    void getItems_shouldDisplayItemsPage_anonymous() {
 
         Page<Item> page = new PageImpl<>(
                 List.of(testItem1, testItem2),
@@ -87,16 +77,16 @@ class ItemControllerTest {
         when(itemService.getAllItems(any(ItemsQueryRequestDto.class)))
                 .thenReturn(Mono.just(page));
 
-        when(cartService.getCart(anyString()))
-                .thenReturn(Mono.just(testCart));
-
         webTestClient.get()
                 .uri("/items")
                 .exchange()
-                .expectStatus().isOk();
+                .expectStatus()
+                .isOk();
 
         verify(itemService).getAllItems(any(ItemsQueryRequestDto.class));
-        verify(cartService).getCart(anyString());
+
+        verify(cartService, never())
+                .getCart(anyLong());
     }
 
     @Test
@@ -111,25 +101,23 @@ class ItemControllerTest {
         when(itemService.getAllItems(any(ItemsQueryRequestDto.class)))
                 .thenReturn(Mono.just(page));
 
-        when(cartService.getCart(anyString()))
-                .thenReturn(Mono.just(testCart));
-
         webTestClient.get()
                 .uri("/")
                 .exchange()
-                .expectStatus().isOk();
+                .expectStatus()
+                .isOk();
 
-        verify(itemService).getAllItems(any(ItemsQueryRequestDto.class));
+        verify(itemService)
+                .getAllItems(any(ItemsQueryRequestDto.class));
     }
 
     @Test
     void getItems_shouldAcceptSearchParameter() {
 
         when(itemService.getAllItems(any()))
-                .thenReturn(Mono.just(new PageImpl<>(List.of(testItem1))));
-
-        when(cartService.getCart(anyString()))
-                .thenReturn(Mono.just(testCart));
+                .thenReturn(Mono.just(
+                        new PageImpl<>(List.of(testItem1))
+                ));
 
         webTestClient.get()
                 .uri(uriBuilder -> uriBuilder
@@ -137,19 +125,20 @@ class ItemControllerTest {
                         .queryParam("search", "Test")
                         .build())
                 .exchange()
-                .expectStatus().isOk();
+                .expectStatus()
+                .isOk();
 
-        verify(itemService).getAllItems(any());
+        verify(itemService)
+                .getAllItems(any(ItemsQueryRequestDto.class));
     }
 
     @Test
     void getItems_shouldAcceptSortParameter() {
 
         when(itemService.getAllItems(any()))
-                .thenReturn(Mono.just(new PageImpl<>(List.of(testItem1))));
-
-        when(cartService.getCart(anyString()))
-                .thenReturn(Mono.just(testCart));
+                .thenReturn(Mono.just(
+                        new PageImpl<>(List.of(testItem1))
+                ));
 
         webTestClient.get()
                 .uri(uriBuilder -> uriBuilder
@@ -157,19 +146,20 @@ class ItemControllerTest {
                         .queryParam("sort", "PRICE")
                         .build())
                 .exchange()
-                .expectStatus().isOk();
+                .expectStatus()
+                .isOk();
 
-        verify(itemService).getAllItems(any());
+        verify(itemService)
+                .getAllItems(any(ItemsQueryRequestDto.class));
     }
 
     @Test
     void getItems_shouldAcceptPaginationParameters() {
 
         when(itemService.getAllItems(any()))
-                .thenReturn(Mono.just(new PageImpl<>(List.of(testItem1))));
-
-        when(cartService.getCart(anyString()))
-                .thenReturn(Mono.just(testCart));
+                .thenReturn(Mono.just(
+                        new PageImpl<>(List.of(testItem1))
+                ));
 
         webTestClient.get()
                 .uri(uriBuilder -> uriBuilder
@@ -178,9 +168,11 @@ class ItemControllerTest {
                         .queryParam("pageSize", "10")
                         .build())
                 .exchange()
-                .expectStatus().isOk();
+                .expectStatus()
+                .isOk();
 
-        verify(itemService).getAllItems(any());
+        verify(itemService)
+                .getAllItems(any(ItemsQueryRequestDto.class));
     }
 
     @Test
@@ -189,15 +181,14 @@ class ItemControllerTest {
         when(itemService.getAllItems(any()))
                 .thenReturn(Mono.just(Page.empty()));
 
-        when(cartService.getCart(anyString()))
-                .thenReturn(Mono.just(testCart));
-
         webTestClient.get()
                 .uri("/items")
                 .exchange()
-                .expectStatus().isOk();
+                .expectStatus()
+                .isOk();
 
-        verify(itemService).getAllItems(any());
+        verify(itemService)
+                .getAllItems(any(ItemsQueryRequestDto.class));
     }
 
     @Test
@@ -206,16 +197,17 @@ class ItemControllerTest {
         when(itemService.getById(1L))
                 .thenReturn(Mono.just(testItem1));
 
-        when(cartService.getCart(anyString()))
-                .thenReturn(Mono.just(testCart));
-
         webTestClient.get()
                 .uri("/items/1")
                 .exchange()
-                .expectStatus().isOk();
+                .expectStatus()
+                .isOk();
 
-        verify(itemService).getById(1L);
-        verify(cartService).getCart(anyString());
+        verify(itemService)
+                .getById(1L);
+
+        verify(cartService, never())
+                .getCart(anyLong());
     }
 
     @Test
@@ -224,19 +216,40 @@ class ItemControllerTest {
         when(itemService.getById(999L))
                 .thenReturn(Mono.empty());
 
-        when(cartService.getCart(anyString()))
-                .thenReturn(Mono.just(testCart));
-
         webTestClient.get()
                 .uri("/items/999")
                 .exchange()
-                .expectStatus().isOk();
+                .expectStatus()
+                .isOk();
 
-        verify(itemService).getById(999L);
+        verify(itemService)
+                .getById(999L);
     }
 
     @Test
-    void getItem_shouldShowCartQuantity_whenItemInCart() {
+    void getItems_shouldLoadCart_whenAuthenticated() {
+
+        Page<Item> page = new PageImpl<>(
+                List.of(testItem1),
+                PageRequest.of(0, 5),
+                1
+        );
+
+        when(itemService.getAllItems(any(ItemsQueryRequestDto.class)))
+                .thenReturn(Mono.just(page));
+
+        webTestClient.get()
+                .uri("/items")
+                .exchange()
+                .expectStatus()
+                .isOk();
+
+        verify(itemService)
+                .getAllItems(any(ItemsQueryRequestDto.class));
+    }
+
+    @Test
+    void getItem_shouldShowCartQuantity_whenAuthenticated() {
 
         CartItem cartItem = new CartItem();
         cartItem.setId(1L);
@@ -249,15 +262,13 @@ class ItemControllerTest {
         when(itemService.getById(1L))
                 .thenReturn(Mono.just(testItem1));
 
-        when(cartService.getCart(anyString()))
-                .thenReturn(Mono.just(testCart));
-
         webTestClient.get()
                 .uri("/items/1")
                 .exchange()
-                .expectStatus().isOk();
+                .expectStatus()
+                .isOk();
 
-        verify(itemService).getById(1L);
-        verify(cartService).getCart(anyString());
+        verify(itemService)
+                .getById(1L);
     }
 }

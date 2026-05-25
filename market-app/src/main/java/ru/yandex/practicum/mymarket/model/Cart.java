@@ -18,8 +18,8 @@ public class Cart {
     @Id
     private Long id;
 
-    @Column("session_id")
-    private String sessionId;
+    @Column("user_id")
+    private Long userId;
 
     @Transient
     private List<CartItem> items = new ArrayList<>();

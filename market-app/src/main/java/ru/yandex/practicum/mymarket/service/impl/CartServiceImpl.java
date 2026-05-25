@@ -37,30 +37,30 @@ public class CartServiceImpl implements CartService {
         this.cartItemRepository = cartItemRepository;
     }
 
-    private String cacheKey(String sessionId) {
-        return CART_CACHE_PREFIX + sessionId;
+    private String cacheKey(Long userId) {
+        return CART_CACHE_PREFIX + userId;
     }
 
     @Override
-    public Mono<Cart> getCart(String sessionId) {
-        String key = cacheKey(sessionId);
+    public Mono<Cart> getCart(Long userId) {
+        String key = cacheKey(userId);
 
         return cacheService.get(key, Cart.class)
-                .doOnNext(cart -> log.debug("Cache hit for cart: {}", sessionId))
+                .doOnNext(cart -> log.debug("Cache hit for cart: {}", userId))
                 .switchIfEmpty(Mono.defer(() -> {
-                    log.debug("Cache miss for cart: {}", sessionId);
-                    return getCartFromDb(sessionId)
+                    log.debug("Cache miss for cart: {}", userId);
+                    return getCartFromDb(userId)
                             .flatMap(cart -> cacheService
                                     .set(key, cart)
                                     .thenReturn(cart));
                 }));
     }
 
-    private Mono<Cart> getCartFromDb(String sessionId) {
-        return cartRepository.findBySessionId(sessionId)
+    private Mono<Cart> getCartFromDb(Long userId) {
+        return cartRepository.findByUserId(userId)
                 .switchIfEmpty(Mono.defer(() -> {
                     Cart newCart = new Cart();
-                    newCart.setSessionId(sessionId);
+                    newCart.setUserId(userId);
                     return cartRepository.save(newCart);
                 }))
                 .flatMap(cart -> cartItemRepository.findAllByCartId(cart.getId())
@@ -72,8 +72,8 @@ public class CartServiceImpl implements CartService {
     }
 
     @Override
-    public Mono<Void> updateItemCount(String sessionId, Long itemId, CartAction action) {
-        return getCartFromDb(sessionId)
+    public Mono<Void> updateItemCount(Long userId, Long itemId, CartAction action) {
+        return getCartFromDb(userId)
                 .flatMap(cart -> cartItemRepository.findByCartIdAndItemId(cart.getId(), itemId)
                         .flatMap(cartItem -> {
                             // Item exists in cart - update or delete
@@ -103,18 +103,18 @@ public class CartServiceImpl implements CartService {
                         }))
                         .then()
                 )
-                .then(invalidateCache(sessionId));
+                .then(invalidateCache(userId));
     }
 
-    private Mono<Void> invalidateCache(String sessionId) {
-        return cacheService.delete(cacheKey(sessionId))
-                .doOnSuccess(count -> log.debug("Invalidated cache for cart: {}, deleted: {}", sessionId, count))
+    private Mono<Void> invalidateCache(Long userId) {
+        return cacheService.delete(cacheKey(userId))
+                .doOnSuccess(count -> log.debug("Invalidated cache for cart: {}, deleted: {}", userId, count))
                 .then();
     }
 
     @Override
-    public Flux<CartItem> getCartItems(String sessionId) {
-        return getCart(sessionId)
+    public Flux<CartItem> getCartItems(Long userId) {
+        return getCart(userId)
                 .flatMapMany(cart -> Flux.fromIterable(cart.getItems()))
                 .flatMap(cartItem ->
                         itemService.getById(cartItem.getItemId())
@@ -125,23 +125,23 @@ public class CartServiceImpl implements CartService {
     }
 
     @Override
-    public Mono<BigDecimal> getCartTotal(String sessionId) {
-        return getCartItems(sessionId)
+    public Mono<BigDecimal> getCartTotal(Long userId) {
+        return getCartItems(userId)
                 .map(CartItem::getSubtotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
                 .defaultIfEmpty(BigDecimal.ZERO);
     }
 
     @Override
-    public Mono<Void> removeItem(String sessionId, Long itemId) {
-        return updateItemCount(sessionId, itemId, CartAction.DELETE);
+    public Mono<Void> removeItem(Long userId, Long itemId) {
+        return updateItemCount(userId, itemId, CartAction.DELETE);
     }
 
     @Override
-    public Mono<Void> clear(String sessionId) {
-        return getCartFromDb(sessionId)
+    public Mono<Void> clear(Long userId) {
+        return getCartFromDb(userId)
                 .flatMapMany(cart -> cartItemRepository.findAllByCartId(cart.getId()))
                 .flatMap(cartItemRepository::delete)
-                .then(invalidateCache(sessionId));
+                .then(invalidateCache(userId));
     }
 }
